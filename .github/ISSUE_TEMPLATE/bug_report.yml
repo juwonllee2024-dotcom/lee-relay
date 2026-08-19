@@ -1,0 +1,81 @@
+name: Bug report
+description: Report a reproducible Lee Relay failure
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting a bug. **Do not paste cookies, auth tokens, private transcripts, or unredacted account screenshots.**
+  - type: input
+    id: version
+    attributes:
+      label: Lee Relay version
+      placeholder: "3.0.1"
+    validations:
+      required: true
+  - type: input
+    id: chrome
+    attributes:
+      label: Chrome version
+      placeholder: "e.g. 140.x"
+    validations:
+      required: true
+  - type: dropdown
+    id: provider
+    attributes:
+      label: Affected provider
+      options:
+        - ChatGPT
+        - Claude
+        - Gemini
+        - Copilot
+        - Multiple providers
+        - Not provider-specific
+    validations:
+      required: true
+  - type: dropdown
+    id: stage
+    attributes:
+      label: Last visible transaction stage
+      options:
+        - PREPARING
+        - SENDING
+        - VERIFYING_DELIVERY
+        - DELIVERED
+        - WAITING_FOR_GENERATION / THINKING
+        - RECEIVING
+        - VERIFYING_RESPONSE
+        - NEEDS_ATTENTION
+        - Unknown
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: Use a fresh meeting if possible and describe the exact sequence.
+      placeholder: |
+        1. Open ChatGPT and Claude...
+        2. Start a meeting...
+        3. At turn 4...
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: activity
+    attributes:
+      label: Sanitized Activity log / observations
+      description: Remove private prompts, names, account details, tokens, and confidential data.
+  - type: checkboxes
+    id: privacy
+    attributes:
+      label: Privacy check
+      options:
+        - label: I removed sensitive/private account and conversation data from this report.
+          required: true
