@@ -1,0 +1,47 @@
+name: Release extension ZIP
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Verify
+        run: npm run verify
+      - name: Package extension
+        shell: bash
+        run: |
+          set -euo pipefail
+          VERSION="${GITHUB_REF_NAME#v}"
+          ZIP="lee-relay-v${VERSION}.zip"
+          zip -9 "$ZIP" \
+            manifest.json \
+            background.js \
+            content.js \
+            meeting-engine.mjs \
+            provider-adapters.mjs \
+            relay-core.mjs \
+            router.mjs \
+            sidepanel.css \
+            sidepanel.html \
+            sidepanel.js \
+            transaction-engine.mjs
+          unzip -t "$ZIP"
+          echo "ZIP=$ZIP" >> "$GITHUB_ENV"
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" "$ZIP" \
+            --title "Lee Relay $GITHUB_REF_NAME" \
+            --generate-notes
