@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Lee Relay</title>
+  <link rel="stylesheet" href="sidepanel.css">
+</head>
+<body>
+  <main class="app-shell">
+    <header class="topbar">
+      <div>
+        <div class="brand-row"><span class="brand-mark">LR</span><span class="brand">LEE RELAY</span></div>
+        <input id="meetingTitle" class="meeting-title" value="New AI Meeting" aria-label="Meeting title">
+      </div>
+      <div id="meetingStatus" class="status-badge" data-status="READY">READY</div>
+    </header>
+
+    <section class="participants-section">
+      <div class="section-heading">
+        <div>
+          <span class="eyebrow">PARTICIPANTS</span>
+          <span id="participantCount" class="count-label">2 / 6</span>
+        </div>
+        <button id="refreshTabs" class="icon-button" type="button" title="Refresh open AI tabs">↻</button>
+      </div>
+      <div id="participants" class="participants-grid" aria-live="polite"></div>
+      <button id="addParticipant" class="add-participant" type="button"><span>＋</span> Add AI</button>
+    </section>
+
+    <section id="attentionStrip" class="attention-strip" hidden>
+      <div class="attention-copy">
+        <strong>Needs attention</strong>
+        <span id="attentionMessage">A meeting turn needs recovery.</span>
+      </div>
+      <div class="recovery-actions">
+        <button id="retryTransaction" type="button">Retry</button>
+        <button id="skipParticipant" type="button">Skip</button>
+        <button id="reconnectParticipant" type="button">Reconnect</button>
+      </div>
+    </section>
+
+    <section class="meeting-section">
+      <div class="section-heading transcript-heading">
+        <span class="eyebrow">MEETING</span>
+        <span id="turnCounter" class="count-label">0 turns</span>
+      </div>
+      <div id="transcript" class="transcript" aria-live="polite">
+        <div class="empty-state">
+          <div class="empty-icon">↔</div>
+          <strong>Your meeting room is ready.</strong>
+          <span>Connect two AI tabs, write a topic, then start the meeting.</span>
+        </div>
+      </div>
+    </section>
+
+    <section class="composer-section">
+      <label class="composer-wrap" for="composer">
+        <textarea id="composer" rows="3" placeholder="Say something to the room…"></textarea>
+        <button id="sendUserMessage" class="send-button" type="button" title="Send to meeting">↑</button>
+      </label>
+      <div class="meeting-actions">
+        <button id="startMeeting" class="primary-button" type="button">Start Meeting</button>
+        <button id="pauseMeeting" class="secondary-button" type="button">Pause</button>
+        <button id="endMeeting" class="danger-button" type="button">End</button>
+      </div>
+      <div id="uiNotice" class="ui-notice" aria-live="polite"></div>
+    </section>
+
+    <details id="meetingControls" class="drawer">
+      <summary>Meeting Controls <span>⌄</span></summary>
+      <div class="drawer-body controls-grid">
+        <label>Maximum AI turns
+          <input id="maxTurns" type="number" min="0" value="20">
+          <small>0 = unlimited</small>
+        </label>
+        <label>Delay between turns
+          <div class="inline-field"><input id="delaySeconds" type="number" min="0" step="0.5" value="4"><span>sec</span></div>
+        </label>
+        <label>Delivery retries
+          <input id="retryLimit" type="number" min="0" max="5" value="3">
+        </label>
+        <label>Response timeout
+          <div class="inline-field"><input id="responseTimeout" type="number" min="30" step="10" value="120"><span>sec</span></div>
+        </label>
+        <label class="switch-row"><span><strong>Smart routing</strong><small>Named AI can speak next</small></span><input id="smartRouting" type="checkbox" checked></label>
+        <label class="switch-row"><span><strong>Screenshots</strong><small>Save verified AI replies</small></span><input id="captureScreenshots" type="checkbox"></label>
+        <button id="clearTranscript" class="wide-quiet-button" type="button">Clear transcript</button>
+        <button id="newMeeting" class="wide-quiet-button" type="button">New meeting</button>
+      </div>
+    </details>
+
+    <details id="activityPanel" class="drawer activity-drawer">
+      <summary>Activity <span id="activityCount" class="count-label">0</span></summary>
+      <div id="activityLog" class="activity-log"></div>
+    </details>
+  </main>
+  <script src="sidepanel.js"></script>
+</body>
+</html>
