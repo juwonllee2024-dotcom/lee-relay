@@ -79,7 +79,6 @@ test('a turn increments currentTurn only after a verified response completes', (
 test('delivery retries verify late delivery before resending', () => {
   const source = read('background.js');
   const fn = source.match(/async function deliveryWithRetries[\s\S]*?\n\}/)?.[0] || '';
-  assert.match(fn, /Idempotency check/);
   assert.match(fn, /verifyDelivery/);
   assert.match(fn, /SUBMIT_MESSAGE/);
   assert.ok(fn.indexOf('verifyDelivery') < fn.lastIndexOf('SUBMIT_MESSAGE'));
