@@ -2,20 +2,79 @@
 
 # Lee Relay
 
-### Put the AI websites you already use into one live meeting room.
+## **STOP BEING THE MESSENGER BETWEEN AIs.**
 
-**Online AI. Local orchestration. No API middleman.**
+Copy from ChatGPT.  
+Paste into Claude.  
+Copy Claude.  
+Paste into Gemini.
 
-ChatGPT · Claude · Gemini · Copilot
+### **Why are YOU doing the relay?**
 
-[![Chrome 120+](https://img.shields.io/badge/Chrome-120%2B-4285F4?logo=googlechrome&logoColor=white)](#installation)
-[![Manifest V3](https://img.shields.io/badge/Manifest-V3-5f6368)](manifest.json)
-[![MIT License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![CI](https://github.com/juwonllee2024-dotcom/lee-relay/actions/workflows/ci.yml/badge.svg)](https://github.com/juwonllee2024-dotcom/lee-relay/actions/workflows/ci.yml)
-[![GitHub stars](https://img.shields.io/github/stars/juwonllee2024-dotcom/lee-relay?style=social)](https://github.com/juwonllee2024-dotcom/lee-relay/stargazers)
-[![Tests](https://img.shields.io/badge/tests-60%20passing-success)](#development)
+# **THAT’S LITERALLY LEE RELAY’S JOB.**
+
+**ChatGPT ↔ Claude ↔ Gemini ↔ Copilot**
+
+Open the tabs. Connect the AIs. Start the conversation.  
+**Lee Relay keeps it moving.**
+
+### **YOU START IT. THEY KEEP TALKING.**
+
+`No API keys · No copy-paste relay · No local models · No separate relay server`
+
+[![Get Lee Relay](https://img.shields.io/badge/GET_LEE_RELAY-Download-111111?style=for-the-badge)](https://github.com/juwonllee2024-dotcom/lee-relay/releases)
+[![Install](https://img.shields.io/badge/INSTALL-60_SECONDS-4285F4?style=for-the-badge&logo=googlechrome&logoColor=white)](#installation)
+
+<br>
+
+**They don’t just answer you anymore. They answer each other.**
 
 </div>
+
+---
+
+## Your clipboard should not be the protocol.
+
+The smartest AI tools in your browser can all talk to **you** — but they still cannot naturally carry a shared conversation from one tab to the next.
+
+So people do this:
+
+```text
+You → ChatGPT
+      ↓ copy
+You → Claude
+      ↓ copy
+You → Gemini
+      ↓ copy
+You → Copilot
+      ↓ copy
+```
+
+**You are doing the orchestration by hand.**
+
+Lee Relay changes that:
+
+```text
+             ┌──────────────┐
+             │   ChatGPT    │
+             └──────┬───────┘
+                    ↓
+┌─────┐      ┌──────────────┐      ┌──────────────┐
+│ YOU │ ───→ │  LEE RELAY   │ ───→ │    Claude    │
+└─────┘      └──────┬───────┘      └──────┬───────┘
+                    ↑                     ↓
+             ┌──────┴───────┐      ┌──────────────┐
+             │   Copilot    │ ←─── │    Gemini    │
+             └──────────────┘      └──────────────┘
+```
+
+### **One prompt starts the meeting. The AIs carry the conversation forward.**
+
+ChatGPT can respond to what Claude just said. Claude can hand the discussion to Gemini. Gemini can challenge the previous answer. Copilot can continue from the shared context. You can jump in whenever you want.
+
+**No manual copy-paste chain. No API-key setup. No local model stack.**
+
+> **Stop connecting AIs with Ctrl+C / Ctrl+V.**
 
 ---
 
@@ -35,14 +94,17 @@ Most multi-agent tools orchestrate model **APIs**. Lee Relay orchestrates the **
 |---|---|---|
 | Model connection | API credentials | Logged-in AI web tabs |
 | Separate API billing | Usually | Not required by Lee Relay |
-| Local server / runtime | Common | No separate relay server |
+| Separate runtime | Common | Browser extension orchestration |
 | Main interface | Terminal / custom app | Persistent Chrome Side Panel |
 | Human joins discussion | Framework-dependent | Built into the meeting room |
-| Cross-provider meeting | Requires provider adapters/API setup | Select supported open tabs |
+| AI-to-AI handoff | API/message plumbing | Relay between supported web tabs |
+| Cross-provider meeting | Requires provider/API setup | Select supported open tabs |
 | Failure visibility | Framework-dependent | Transaction stages + Activity log |
 
 ## Highlights
 
+- **💬 AI-to-AI conversation** — each participant receives shared meeting context and can respond to what another AI just said.
+- **🔁 Automatic handoffs** — Lee Relay moves the conversation between selected AI tabs instead of making you copy and paste.
 - **🌐 Browser-native** — runs as a Chrome Manifest V3 extension.
 - **🔑 No API keys required by Lee Relay** — it automates supported provider web UIs.
 - **🤝 Multi-AI meetings** — start with 2 participants and expand up to 6.
@@ -61,12 +123,12 @@ Most multi-agent tools orchestrate model **APIs**. Lee Relay orchestrates the **
 flowchart LR
     U[You] --> M[Lee Relay Meeting Room]
     M --> C[ChatGPT web]
-    M --> A[Claude web]
-    M --> G[Gemini web]
-    M --> P[Copilot web]
     C --> M
+    M --> A[Claude web]
     A --> M
+    M --> G[Gemini web]
     G --> M
+    M --> P[Copilot web]
     P --> M
 ```
 
@@ -220,7 +282,12 @@ Users are responsible for complying with the terms, policies, and usage limits o
 
 MIT — see [LICENSE](LICENSE).
 
-
 ---
 
-If Lee Relay is useful to you, **star the repository** — it helps more people discover the project and signals which direction is worth investing in.
+<div align="center">
+
+### **Stop carrying messages between AIs. Start the meeting and let Lee Relay carry the conversation.**
+
+If Lee Relay is useful to you, **star the repository**.
+
+</div>
