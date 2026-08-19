@@ -1,0 +1,36 @@
+name: Feature request
+description: Suggest a focused improvement
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem would this solve?
+      description: Describe the user problem before proposing the implementation.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed behavior
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Reliability / recovery
+        - Provider adapter
+        - Meeting / routing
+        - Side Panel UI
+        - Transcript / export
+        - New provider
+        - Developer tooling
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: tradeoffs
+    attributes:
+      label: Tradeoffs or failure modes to consider
