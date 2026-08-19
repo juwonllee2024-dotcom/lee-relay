@@ -1,0 +1,51 @@
+{
+  "manifest_version": 3,
+  "name": "Lee Relay Bot",
+  "version": "3.0.1",
+  "description": "Persistent multi-AI meeting room with verified no-API browser relay automation.",
+  "minimum_chrome_version": "120",
+  "permissions": [
+    "tabs",
+    "storage",
+    "scripting",
+    "downloads",
+    "activeTab",
+    "alarms",
+    "sidePanel"
+  ],
+  "host_permissions": [
+    "https://gemini.google.com/*",
+    "https://copilot.microsoft.com/*",
+    "https://chatgpt.com/*",
+    "https://chat.openai.com/*",
+    "https://claude.ai/*"
+  ],
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "action": {
+    "default_title": "Open Lee Relay"
+  },
+  "side_panel": {
+    "default_path": "sidepanel.html"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://gemini.google.com/*",
+        "https://copilot.microsoft.com/*",
+        "https://chatgpt.com/*",
+        "https://chat.openai.com/*",
+        "https://claude.ai/*"
+      ],
+      "js": [
+        "content.js"
+      ],
+      "run_at": "document_idle"
+    }
+  ],
+  "optional_permissions": [
+    "debugger"
+  ]
+}
