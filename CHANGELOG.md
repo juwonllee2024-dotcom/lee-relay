@@ -1,5 +1,11 @@
 # Changelog
 
+## 3.0.3
+
+- normalize text line endings in the release packer so Windows and Linux produce the same archive bytes
+- add a cross-platform repeatability regression test
+- publish a corrected release capsule and verification record
+
 ## 3.0.2
 
 ### Added

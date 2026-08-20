@@ -8,7 +8,9 @@ Lee Relay v3.0.2 is the verified Chrome extension release capsule for the browse
 
 - Input: the repository's fixed 16-file extension allowlist and `manifest.json`.
 - Result: `lee-relay-v3.0.2.zip`, containing 16 files with a root manifest at version `3.0.2`.
-- SHA-256: `1040f0899d9a3e81229f88aa974a6f8a49f468a4cacf1760f078c83fb874a63d`
+- Published GitHub runner SHA-256: `043f9a0d688040b6d6a6d37ec23b7aba761197067a6279fa625ea09cde43bf53`
+- Local Windows checkout SHA-256 before line-ending normalization: `1040f0899d9a3e81229f88aa974a6f8a49f468a4cacf1760f078c83fb874a63d`
+- Note: v3.0.2 verified its own published checksum, but v3.0.3 fixes this cross-platform reproducibility gap.
 - Release: https://github.com/juwonllee2024-dotcom/lee-relay/releases/tag/v3.0.2
 
 ## Gates
