@@ -210,7 +210,7 @@ Lee Relay v3 was rebuilt around failure visibility rather than optimistic automa
 
 **Response correlation** is transaction-scoped using meeting, transaction, participant, and tab identity. A verified background delivery receipt remains authoritative even if a provider collapses or visually rewrites a long outgoing prompt.
 
-**Recovery** includes idempotency checks before resend, bounded retries, content-script reattachment, a 30-second watchdog, and explicit `NEEDS ATTENTION` state when automation cannot prove success.
+**Recovery** includes idempotency checks before resend, bounded retries, page re-attachment, a 30-second watchdog, and explicit `NEEDS ATTENTION` state when automation cannot prove success.
 
 Read the deeper design notes in [Architecture](docs/architecture.md) and the recovery guide in [Troubleshooting](docs/troubleshooting.md).
 
