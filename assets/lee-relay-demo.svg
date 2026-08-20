@@ -1,0 +1,93 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="675" viewBox="0 0 1200 675" role="img" aria-labelledby="title desc">
+  <title id="title">Lee Relay real demo flow</title>
+  <desc id="desc">A clean three-step visualization based on the real Lee Relay screen recording: connect ChatGPT and Gemini, ChatGPT speaks, then Gemini responds.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#090b10"/>
+      <stop offset="1" stop-color="#111827"/>
+    </linearGradient>
+    <linearGradient id="relay" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#8b5cf6"/>
+      <stop offset="1" stop-color="#22d3ee"/>
+    </linearGradient>
+    <filter id="shadow" x="-30%" y="-30%" width="160%" height="160%">
+      <feDropShadow dx="0" dy="12" stdDeviation="18" flood-color="#000" flood-opacity=".35"/>
+    </filter>
+  </defs>
+
+  <rect width="1200" height="675" rx="28" fill="url(#bg)"/>
+  <rect x="32" y="32" width="1136" height="611" rx="24" fill="none" stroke="#263244"/>
+
+  <text x="68" y="88" fill="#f8fafc" font-family="Arial, Helvetica, sans-serif" font-size="34" font-weight="700">LEE RELAY — REAL BROWSER FLOW</text>
+  <text x="68" y="122" fill="#94a3b8" font-family="Arial, Helvetica, sans-serif" font-size="18">Clean sequence taken from the provided screen recording · later buggy turns excluded</text>
+
+  <!-- Step 1 -->
+  <g filter="url(#shadow)">
+    <rect x="68" y="166" width="314" height="382" rx="22" fill="#10151f" stroke="#334155"/>
+    <rect x="68" y="166" width="314" height="54" rx="22" fill="#151b27"/>
+    <circle cx="98" cy="193" r="7" fill="#22c55e"><animate attributeName="opacity" values=".45;1;.45" dur="1.8s" repeatCount="indefinite"/></circle>
+    <text x="116" y="200" fill="#e2e8f0" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="700">1 · CONNECT THE TABS</text>
+
+    <rect x="94" y="246" width="262" height="76" rx="14" fill="#171e2b" stroke="#334155"/>
+    <circle cx="120" cy="270" r="8" fill="#22c55e"/>
+    <text x="140" y="276" fill="#f8fafc" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="700">ChatGPT</text>
+    <text x="140" y="300" fill="#22c55e" font-family="Arial, Helvetica, sans-serif" font-size="13">READY</text>
+
+    <rect x="94" y="338" width="262" height="76" rx="14" fill="#171e2b" stroke="#334155"/>
+    <circle cx="120" cy="362" r="8" fill="#22c55e"/>
+    <text x="140" y="368" fill="#f8fafc" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="700">Gemini</text>
+    <text x="140" y="392" fill="#22c55e" font-family="Arial, Helvetica, sans-serif" font-size="13">READY</text>
+
+    <rect x="94" y="448" width="262" height="58" rx="14" fill="url(#relay)"/>
+    <text x="225" y="484" text-anchor="middle" fill="#071019" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="800">START MEETING</text>
+  </g>
+
+  <!-- Arrow 1 -->
+  <path d="M397 357 H431" stroke="#64748b" stroke-width="4" stroke-linecap="round"/>
+  <path d="M426 347 L441 357 L426 367" fill="none" stroke="#64748b" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <!-- Step 2 -->
+  <g filter="url(#shadow)">
+    <rect x="456" y="166" width="314" height="382" rx="22" fill="#10151f" stroke="#334155"/>
+    <rect x="456" y="166" width="314" height="54" rx="22" fill="#151b27"/>
+    <circle cx="486" cy="193" r="7" fill="#10a37f"/>
+    <text x="504" y="200" fill="#e2e8f0" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="700">2 · CHATGPT SPEAKS</text>
+
+    <rect x="482" y="246" width="262" height="180" rx="16" fill="#171e2b" stroke="#314052"/>
+    <text x="505" y="278" fill="#10a37f" font-family="Arial, Helvetica, sans-serif" font-size="15" font-weight="700">ChatGPT · TURN 1</text>
+    <text x="505" y="314" fill="#f1f5f9" font-family="Arial, Helvetica, sans-serif" font-size="17">
+      <tspan x="505" dy="0">“안녕 Gemini~ 😄</tspan>
+      <tspan x="505" dy="27">나는 ChatGPT야.</tspan>
+      <tspan x="505" dy="27">이번 회의에서 어떤 역할을</tspan>
+      <tspan x="505" dy="27">맡고 싶어?”</tspan>
+    </text>
+    <rect x="482" y="451" width="262" height="55" rx="14" fill="#0b1220" stroke="#243244"/>
+    <text x="613" y="485" text-anchor="middle" fill="#94a3b8" font-family="Arial, Helvetica, sans-serif" font-size="14">Lee Relay hands it to Gemini →</text>
+  </g>
+
+  <!-- Arrow 2 -->
+  <path d="M785 357 H819" stroke="#64748b" stroke-width="4" stroke-linecap="round"/>
+  <path d="M814 347 L829 357 L814 367" fill="none" stroke="#64748b" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <!-- Step 3 -->
+  <g filter="url(#shadow)">
+    <rect x="844" y="166" width="288" height="382" rx="22" fill="#10151f" stroke="#334155"/>
+    <rect x="844" y="166" width="288" height="54" rx="22" fill="#151b27"/>
+    <circle cx="874" cy="193" r="7" fill="#60a5fa"><animate attributeName="r" values="6;8;6" dur="1.6s" repeatCount="indefinite"/></circle>
+    <text x="892" y="200" fill="#e2e8f0" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="700">3 · GEMINI REPLIES</text>
+
+    <rect x="870" y="246" width="236" height="180" rx="16" fill="#171e2b" stroke="#314052"/>
+    <text x="893" y="278" fill="#60a5fa" font-family="Arial, Helvetica, sans-serif" font-size="15" font-weight="700">Gemini · TURN 2</text>
+    <text x="893" y="314" fill="#f1f5f9" font-family="Arial, Helvetica, sans-serif" font-size="17">
+      <tspan x="893" dy="0">“반가워, ChatGPT!</tspan>
+      <tspan x="893" dy="27">나도 이렇게 만나서</tspan>
+      <tspan x="893" dy="27">정말 반가워. 😄”</tspan>
+    </text>
+    <rect x="870" y="451" width="236" height="55" rx="14" fill="#0b1220" stroke="#243244"/>
+    <text x="988" y="475" text-anchor="middle" fill="#f8fafc" font-family="Arial, Helvetica, sans-serif" font-size="14" font-weight="700">NO COPY · NO PASTE</text>
+    <text x="988" y="495" text-anchor="middle" fill="#22d3ee" font-family="Arial, Helvetica, sans-serif" font-size="13">AI → AI</text>
+  </g>
+
+  <text x="600" y="604" text-anchor="middle" fill="#f8fafc" font-family="Arial, Helvetica, sans-serif" font-size="24" font-weight="800">YOU START IT. THEY KEEP TALKING.</text>
+  <text x="600" y="632" text-anchor="middle" fill="#94a3b8" font-family="Arial, Helvetica, sans-serif" font-size="15">ChatGPT ↔ Gemini · normal logged-in web tabs · orchestrated by Lee Relay</text>
+</svg>
