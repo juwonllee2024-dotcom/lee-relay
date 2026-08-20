@@ -24,11 +24,11 @@ Open the tabs. Connect the AIs. Start the conversation.
 
 <br>
 
-<img src="assets/lee-relay-demo.svg" alt="Lee Relay demo flow — connect the AI tabs, ChatGPT speaks, then Gemini responds" width="100%">
+<img src="assets/lee-relay-demo.gif" alt="Actual Lee Relay screen-recording extract — connect the AI tabs, ChatGPT speaks, then Gemini responds" width="640">
 
 <br>
 
-**Real recorded flow: connect the tabs → ChatGPT speaks → Gemini responds. No manual copy/paste.**
+**ACTUAL SCREEN RECORDING — setup → ChatGPT speaks → Gemini responds. No manual copy/paste.**
 
 [![Get Lee Relay](https://img.shields.io/badge/GET_LEE_RELAY-Download-111111?style=for-the-badge)](https://github.com/juwonllee2024-dotcom/lee-relay/releases)
 [![Install](https://img.shields.io/badge/INSTALL-60_SECONDS-4285F4?style=for-the-badge&logo=googlechrome&logoColor=white)](#installation)
