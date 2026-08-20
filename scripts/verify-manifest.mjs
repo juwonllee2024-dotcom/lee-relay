@@ -13,7 +13,8 @@ const failures = [];
 const check = (condition, message) => { if (!condition) failures.push(message); };
 
 check(manifest.manifest_version === 3, 'manifest_version must be 3');
-check(manifest.version === '3.0.1', 'manifest version must be 3.0.1');
+check(manifest.version === '3.0.2', 'manifest version must be 3.0.2');
+check(manifest.name === 'Lee Relay — AI Meeting Room', 'manifest name must identify the AI meeting room');
 check(Number(manifest.minimum_chrome_version) >= 120, 'minimum Chrome version must be >= 120');
 check(manifest.permissions?.includes('sidePanel'), 'sidePanel permission is required');
 check(manifest.permissions?.includes('alarms'), 'alarms permission is required for watchdog recovery');

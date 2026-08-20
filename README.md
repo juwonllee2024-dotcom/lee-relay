@@ -179,14 +179,17 @@ Provider websites can change their DOM without notice. Lee Relay is intentionall
 
 **Requirements:** Google Chrome 120 or later and access to at least two supported AI web apps.
 
-1. Download the latest Lee Relay release ZIP from [GitHub Releases](https://github.com/juwonllee2024-dotcom/lee-relay/releases).
-2. Extract the ZIP.
-3. Open `chrome://extensions`.
-4. Turn on **Developer mode**.
-5. Click **Load unpacked**.
-6. Select the extracted folder containing `manifest.json` at its root.
-7. Open at least two supported AI chats.
-8. Click the Lee Relay toolbar icon to open the Side Panel.
+1. Download `lee-relay-v3.0.2.zip` and its `.sha256` file from [GitHub Releases](https://github.com/juwonllee2024-dotcom/lee-relay/releases/latest).
+2. Verify the archive before extracting it. PowerShell: `Get-FileHash .\lee-relay-v3.0.2.zip -Algorithm SHA256`; macOS/Linux: `sha256sum -c lee-relay-v3.0.2.zip.sha256`.
+3. Extract the ZIP into a new folder. `manifest.json` must be directly inside that folder.
+4. Open `chrome://extensions`, turn on **Developer mode**, and click **Load unpacked**.
+5. Select the extracted folder, open at least two supported AI chats, and click the Lee Relay toolbar icon.
+
+The release archive is self-contained. It does not require npm, Node.js, an API key, a local model, Docker, or a Lee Relay server. Every release includes a checksum and is built through the same `npm run verify` command used in CI.
+
+### Trust boundary
+
+Lee Relay automates the web pages you explicitly connect. Prompts and responses sent to a participant still go to that provider. Read [PRIVACY.md](PRIVACY.md), review each provider's terms, and do not connect confidential material unless your account and organization allow it.
 
 ## Start your first AI meeting
 
