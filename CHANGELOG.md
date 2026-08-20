@@ -1,5 +1,18 @@
 # Changelog
 
+## 3.0.2
+
+### Added
+
+- Reproducible, dependency-free release ZIP packaging for Windows, macOS, Linux, and GitHub Actions.
+- Archive verifier that checks the manifest, exact runtime inventory, safe paths, CRCs, and version.
+- SHA-256 checksum asset for every published extension release.
+- Clearer Chrome display name: `Lee Relay — AI Meeting Room`.
+
+### Fixed
+
+- Closed the broken first-run path where README promised a release ZIP but no verified release artifact existed.
+
 ## 3.0.1 — 2026-08-19
 
 ### Fixed

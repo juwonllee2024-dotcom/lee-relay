@@ -18,30 +18,12 @@ jobs:
           node-version: 22
       - name: Verify
         run: npm run verify
-      - name: Package extension
-        shell: bash
-        run: |
-          set -euo pipefail
-          VERSION="${GITHUB_REF_NAME#v}"
-          ZIP="lee-relay-v${VERSION}.zip"
-          zip -9 "$ZIP" \
-            manifest.json \
-            background.js \
-            content.js \
-            meeting-engine.mjs \
-            provider-adapters.mjs \
-            relay-core.mjs \
-            router.mjs \
-            sidepanel.css \
-            sidepanel.html \
-            sidepanel.js \
-            transaction-engine.mjs
-          unzip -t "$ZIP"
-          echo "ZIP=$ZIP" >> "$GITHUB_ENV"
       - name: Create GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "$GITHUB_REF_NAME" "$ZIP" \
+          gh release create "$GITHUB_REF_NAME" \
+            dist/lee-relay-v*.zip \
+            dist/lee-relay-v*.zip.sha256 \
             --title "Lee Relay $GITHUB_REF_NAME" \
             --generate-notes

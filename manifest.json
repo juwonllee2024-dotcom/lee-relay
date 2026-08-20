@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "Lee Relay Bot",
-  "version": "3.0.1",
-  "description": "Persistent multi-AI meeting room with verified no-API browser relay automation.",
+  "name": "Lee Relay — AI Meeting Room",
+  "version": "3.0.2",
+  "description": "Let ChatGPT, Claude, Gemini, and Copilot discuss one topic in a verified Chrome Side Panel.",
   "minimum_chrome_version": "120",
   "permissions": [
     "tabs",
