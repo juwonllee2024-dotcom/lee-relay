@@ -50,6 +50,10 @@ function fileBuffer(data) {
   return Buffer.isBuffer(data) ? data : Buffer.from(data);
 }
 
+function normalizedTextFile(filePath) {
+  return Buffer.from(fs.readFileSync(filePath, 'utf8').replaceAll('\r\n', '\n').replaceAll('\r', '\n'));
+}
+
 function writeLocalHeader(name, data) {
   const nameBuffer = Buffer.from(name, 'utf8');
   const header = Buffer.alloc(30 + nameBuffer.length);
@@ -148,7 +152,7 @@ export function buildArchiveBuffer(rootDir) {
       throw new Error(`package path escapes workspace: ${name}`);
     }
     if (!fs.statSync(filePath).isFile()) throw new Error(`required package file is not a file: ${name}`);
-    return { name, data: fs.readFileSync(filePath) };
+    return { name, data: normalizedTextFile(filePath) };
   });
   if (JSON.parse(entries[0].data.toString('utf8')).version !== manifest.version) {
     throw new Error('manifest version changed while packaging');
@@ -160,10 +164,18 @@ export function sha256(data) {
   return crypto.createHash('sha256').update(data).digest('hex');
 }
 
+function clearReleaseArtifacts(outputDir) {
+  for (const entry of fs.readdirSync(outputDir, { withFileTypes: true })) {
+    if (!entry.isFile() || !/^lee-relay-v\d+\.\d+\.\d+\.zip(?:\.sha256)?$/.test(entry.name)) continue;
+    fs.rmSync(path.join(outputDir, entry.name), { force: true });
+  }
+}
+
 export function packageExtension(rootDir, outputDir = path.join(rootDir, 'dist')) {
   const manifest = readManifest(path.resolve(rootDir));
   const archive = buildArchiveBuffer(rootDir);
   fs.mkdirSync(outputDir, { recursive: true });
+  clearReleaseArtifacts(outputDir);
   const archiveName = `lee-relay-v${manifest.version}.zip`;
   const archivePath = path.join(outputDir, archiveName);
   const checksumPath = `${archivePath}.sha256`;
@@ -182,4 +194,3 @@ if (isMainModule()) {
   console.log(`Packaged ${result.archiveName}`);
   console.log(`SHA-256: ${result.sha256}`);
 }
-

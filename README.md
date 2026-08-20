@@ -179,8 +179,8 @@ Provider websites can change their DOM without notice. Lee Relay is intentionall
 
 **Requirements:** Google Chrome 120 or later and access to at least two supported AI web apps.
 
-1. Download `lee-relay-v3.0.2.zip` and its `.sha256` file from [GitHub Releases](https://github.com/juwonllee2024-dotcom/lee-relay/releases/latest).
-2. Verify the archive before extracting it. PowerShell: `Get-FileHash .\lee-relay-v3.0.2.zip -Algorithm SHA256`; macOS/Linux: `sha256sum -c lee-relay-v3.0.2.zip.sha256`.
+1. Download `lee-relay-v3.0.3.zip` and its `.sha256` file from [GitHub Releases](https://github.com/juwonllee2024-dotcom/lee-relay/releases/latest).
+2. Verify the archive before extracting it. PowerShell: `Get-FileHash .\lee-relay-v3.0.3.zip -Algorithm SHA256`; macOS/Linux: `sha256sum -c lee-relay-v3.0.3.zip.sha256`.
 3. Extract the ZIP into a new folder. `manifest.json` must be directly inside that folder.
 4. Open `chrome://extensions`, turn on **Developer mode**, and click **Load unpacked**.
 5. Select the extracted folder, open at least two supported AI chats, and click the Lee Relay toolbar icon.

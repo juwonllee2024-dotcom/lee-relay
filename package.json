@@ -1,6 +1,6 @@
 {
   "name": "lee-relay",
-  "version": "3.0.2",
+  "version": "3.0.3",
   "private": true,
   "description": "Browser-native multi-AI meeting room for ChatGPT, Claude, Gemini, and Copilot — no API keys required.",
   "type": "module",
