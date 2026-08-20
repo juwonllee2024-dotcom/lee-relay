@@ -7,19 +7,21 @@ import {
   PACKAGE_FILES,
   buildArchiveBuffer,
   createZipBuffer,
+  packageExtension,
 } from '../scripts/package-extension.mjs';
 import { verifyArchiveBuffer } from '../scripts/verify-package.mjs';
 
-async function fixtureRoot(version = '9.9.9') {
+async function fixtureRoot(version = '9.9.9', lineEnding = '\n') {
   const root = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'lee-relay-package-'));
   for (const name of PACKAGE_FILES) {
     const filePath = path.join(root, name);
     await fs.promises.mkdir(path.dirname(filePath), { recursive: true });
+    const fixture = `fixture:${name}\n`.replaceAll('\n', lineEnding);
     await fs.promises.writeFile(
       filePath,
       name === 'manifest.json'
         ? JSON.stringify({ manifest_version: 3, name: 'Lee Relay', version })
-        : `fixture:${name}\n`,
+        : fixture,
     );
   }
   return root;
@@ -32,6 +34,27 @@ test('builds exact root inventory and verifies manifest version', async () => {
 
   assert.deepEqual(report.files, [...PACKAGE_FILES].sort());
   assert.equal(report.version, '9.9.9');
+});
+
+test('normalizes text line endings for cross-platform repeatability', async () => {
+  const unixArchive = buildArchiveBuffer(await fixtureRoot('9.9.9', '\n'));
+  const windowsArchive = buildArchiveBuffer(await fixtureRoot('9.9.9', '\r\n'));
+
+  assert.deepEqual(windowsArchive, unixArchive);
+});
+
+test('removes stale release artifacts before writing a new capsule', async () => {
+  const root = await fixtureRoot();
+  const outputDir = path.join(root, 'dist');
+  await fs.promises.mkdir(outputDir);
+  await fs.promises.writeFile(path.join(outputDir, 'lee-relay-v0.0.0.zip'), 'stale');
+
+  packageExtension(root, outputDir);
+
+  assert.deepEqual((await fs.promises.readdir(outputDir)).sort(), [
+    'lee-relay-v9.9.9.zip',
+    'lee-relay-v9.9.9.zip.sha256',
+  ]);
 });
 
 test('rejects unsafe archive paths before extraction', () => {
@@ -51,7 +74,7 @@ test('rejects development files and version drift', async () => {
   const archive = buildArchiveBuffer(root);
 
   assert.throws(
-    () => verifyArchiveBuffer(archive, '3.0.2'),
+    () => verifyArchiveBuffer(archive, '3.0.3'),
     /manifest version mismatch/,
   );
 
@@ -64,4 +87,3 @@ test('rejects development files and version drift', async () => {
     /unexpected archive files|missing archive files/,
   );
 });
-
