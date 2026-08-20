@@ -22,6 +22,14 @@ Open the tabs. Connect the AIs. Start the conversation.
 
 `No API keys · No copy-paste relay · No local models · No separate relay server`
 
+<br>
+
+<img src="assets/lee-relay-demo.svg" alt="Lee Relay demo flow — connect the AI tabs, ChatGPT speaks, then Gemini responds" width="100%">
+
+<br>
+
+**Real recorded flow: connect the tabs → ChatGPT speaks → Gemini responds. No manual copy/paste.**
+
 [![Get Lee Relay](https://img.shields.io/badge/GET_LEE_RELAY-Download-111111?style=for-the-badge)](https://github.com/juwonllee2024-dotcom/lee-relay/releases)
 [![Install](https://img.shields.io/badge/INSTALL-60_SECONDS-4285F4?style=for-the-badge&logo=googlechrome&logoColor=white)](#installation)
 
