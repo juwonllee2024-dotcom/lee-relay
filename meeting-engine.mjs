@@ -1,3 +1,9 @@
+import {
+  createLoopGuardState,
+  normalizeMeetingCoordination,
+  normalizeParticipantCoordination,
+} from './coordination-engine.mjs';
+
 export const MAX_PARTICIPANTS = 6;
 export const DEFAULT_MEETING_SETTINGS = Object.freeze({
   maxTurns: 20,
@@ -7,7 +13,27 @@ export const DEFAULT_MEETING_SETTINGS = Object.freeze({
   retryLimit: 3,
   responseTimeoutMs: 120000,
   contextCharBudget: 12000,
+  loopGuardEnabled: true,
+  loopGuardInteractive: false,
+  loopGuardMaxHops: 20,
+  loopGuardMaxSameSpeaker: 3,
+  loopGuardMaxSameRoute: 6,
 });
+
+export const INTERACTION_MODES = Object.freeze({
+  INTERACTIVE: 'interactive',
+  AUTONOMOUS: 'autonomous',
+});
+
+export function normalizeInteractionMode(value) {
+  return value === INTERACTION_MODES.AUTONOMOUS
+    ? INTERACTION_MODES.AUTONOMOUS
+    : INTERACTION_MODES.INTERACTIVE;
+}
+
+export function normalizeTopicText(value = '') {
+  return String(value || '').replace(/\s+/g, ' ').trim();
+}
 
 function uid(prefix = 'id') {
   const value = globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(16).slice(2)}`;
@@ -19,7 +45,7 @@ function stamp(meeting, now = Date.now()) {
 }
 
 export function createParticipant(slotIndex, binding = {}) {
-  return {
+  return normalizeParticipantCoordination({
     id: binding.id || uid('participant'),
     slotIndex,
     provider: binding.provider || null,
@@ -31,7 +57,7 @@ export function createParticipant(slotIndex, binding = {}) {
     lastKnownAssistantSignature: binding.lastKnownAssistantSignature || null,
     lastKnownUserSignature: binding.lastKnownUserSignature || null,
     lastSeenAt: Number(binding.lastSeenAt) || 0,
-  };
+  });
 }
 
 export function createMeeting(options = {}) {
@@ -47,11 +73,15 @@ export function createMeeting(options = {}) {
     currentTurn: 0,
     nextSpeakerParticipantId: null,
     routingMode: 'smart',
+    interactionMode: normalizeInteractionMode(options.interactionMode),
+    topicText: normalizeTopicText(options.topicText),
     settings: { ...DEFAULT_MEETING_SETTINGS, ...(options.settings || {}) },
+    session: options.session || {},
+    loopGuard: createLoopGuardState(options.loopGuard || {}),
     activeTransaction: null,
     activityLog: [],
   };
-  return meeting;
+  return normalizeMeetingCoordination(meeting);
 }
 
 function nextSlotIndex(participants) {
@@ -155,7 +185,7 @@ export function publicMeetingState(meeting) {
 
 export function durableMeetingState(meeting) {
   if (!meeting) return null;
-  const copy = publicMeetingState(meeting);
+  const copy = normalizeMeetingCoordination(publicMeetingState(meeting));
   copy.participants = copy.participants.map((p) => ({
     ...p,
     tabId: null,
@@ -164,6 +194,8 @@ export function durableMeetingState(meeting) {
     turnState: 'WAITING',
   }));
   copy.activeTransaction = null;
+  copy.interactionMode = normalizeInteractionMode(copy.interactionMode);
+  copy.topicText = normalizeTopicText(copy.topicText);
   if (copy.status === 'LIVE' || copy.status === 'NEEDS_ATTENTION') copy.status = 'PAUSED';
   return copy;
 }

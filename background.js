@@ -1,6 +1,7 @@
-import { classifyUrl, normalizeText, signatureFor, providerLabelFor } from './relay-core.mjs';
+import { classifyUrl, normalizeText, signatureFor, providerLabelFor, isRelayEnvelope, buildCompactRelayPrompt, sanitizeRelayResponse } from './relay-core.mjs';
 import {
   createMeeting,
+  DEFAULT_MEETING_SETTINGS,
   addParticipant,
   removeParticipant,
   bindParticipant,
@@ -11,7 +12,14 @@ import {
   publicMeetingState,
   durableMeetingState,
   MAX_PARTICIPANTS,
+  normalizeInteractionMode,
+  normalizeTopicText,
 } from './meeting-engine.mjs';
+import {
+  autonomousSeed,
+  canAcceptUserMessage,
+  canChangeInteractionMode,
+} from './interaction-mode.mjs';
 import {
   createTransaction,
   transitionTransaction,
@@ -21,14 +29,37 @@ import {
   markTransactionRetry,
   transactionTimedOut,
 } from './transaction-engine.mjs';
-import { selectNextSpeaker, nextRoundRobinParticipant } from './router.mjs';
+import { selectNextSpeaker } from './router.mjs';
+import {
+  buildAdaptiveContextPlan,
+  buildAutonomousContextPlan,
+  buildAutonomousFallbackInlinePrompt,
+  buildFallbackInlinePrompt,
+} from './context-engine.mjs';
+import { createBackgroundTabController } from './background-tab-controller.mjs';
+import {
+  createLoopGuardState,
+  currentSessionPhase,
+  loopGuardDecision,
+  normalizeMeetingCoordination,
+  normalizeParticipantCoordination,
+  normalizeSession,
+  recordLoopGuardHop,
+  recordSessionTurn,
+  startSession,
+} from './coordination-engine.mjs';
 
-const ACTIVE_RUNTIME_KEY = 'v3MeetingRuntime';
-const SAVED_MEETING_KEY = 'v3SavedMeeting';
+const ACTIVE_RUNTIME_KEY = 'v4.0.0MeetingRuntime';
+const SAVED_MEETING_KEY = 'v4.0.0SavedMeeting';
+const LEGACY_ACTIVE_RUNTIME_KEY = 'v3.0.8MeetingRuntime';
+const LEGACY_SAVED_MEETING_KEY = 'v3.0.8SavedMeeting';
 const UI_SETTINGS_KEY = 'v3UiSettings';
-const WATCHDOG_ALARM = 'lee-relay-v3-watchdog';
+const WATCHDOG_ALARM = 'lee-relay-v4.0.0-watchdog';
+const ACTIVE_TURN_CHECK_DELAY_MS = 2400;
+let activeTurnCheckTimer = null;
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 let eventQueue = Promise.resolve();
+const backgroundTabController = createBackgroundTabController(chrome);
 
 function enqueue(task) {
   const run = eventQueue.then(task, task);
@@ -38,6 +69,15 @@ function enqueue(task) {
 
 function withActivity(meeting, message, extra = {}) {
   return appendActivity(meeting, { message, ...extra });
+}
+
+function scheduleActiveTurnCheck(delayMs = ACTIVE_TURN_CHECK_DELAY_MS) {
+  if (activeTurnCheckTimer) clearTimeout(activeTurnCheckTimer);
+  const delay = Math.max(100, Number(delayMs) || ACTIVE_TURN_CHECK_DELAY_MS);
+  activeTurnCheckTimer = setTimeout(() => {
+    activeTurnCheckTimer = null;
+    enqueue(() => watchdogRecover()).catch(() => {});
+  }, delay);
 }
 
 async function enableSidePanelAction() {
@@ -51,18 +91,62 @@ async function ensureWatchdog() {
   await chrome.alarms.create(WATCHDOG_ALARM, { delayInMinutes: 0.5, periodInMinutes: 0.5 });
 }
 
+function sanitizeMeetingTranscript(meeting) {
+  if (!meeting?.transcript?.length) return meeting;
+  let changed = false;
+  const transcript = [];
+  for (const entry of meeting.transcript) {
+    if (entry.speakerType === 'USER' && isRelayEnvelope(entry.text)) {
+      changed = true;
+      continue;
+    }
+    if (entry.speakerType === 'AI') {
+      const cleaned = sanitizeRelayResponse(entry.text, '');
+      if (!cleaned) {
+        changed = true;
+        continue;
+      }
+      if (cleaned !== normalizeText(entry.text)) {
+        changed = true;
+        transcript.push({ ...entry, text: cleaned });
+        continue;
+      }
+    }
+    transcript.push(entry);
+  }
+  return changed ? { ...meeting, transcript } : meeting;
+}
+
 async function getMeeting() {
-  const session = await chrome.storage.session.get(ACTIVE_RUNTIME_KEY);
-  if (session[ACTIVE_RUNTIME_KEY]) return session[ACTIVE_RUNTIME_KEY];
-  const local = await chrome.storage.local.get(SAVED_MEETING_KEY);
-  const restored = local[SAVED_MEETING_KEY] || createMeeting();
-  const meeting = {
+  const session = await chrome.storage.session.get([ACTIVE_RUNTIME_KEY, LEGACY_ACTIVE_RUNTIME_KEY]);
+  const activeStored = session[ACTIVE_RUNTIME_KEY] || session[LEGACY_ACTIVE_RUNTIME_KEY];
+  if (activeStored) {
+    const active = normalizeMeetingCoordination(sanitizeMeetingTranscript(activeStored));
+    const next = {
+      ...active,
+      settings: { ...DEFAULT_MEETING_SETTINGS, ...(active.settings || {}) },
+      interactionMode: normalizeInteractionMode(active.interactionMode),
+      topicText: normalizeTopicText(active.topicText),
+    };
+    if (!session[ACTIVE_RUNTIME_KEY]) await chrome.storage.session.set({ [ACTIVE_RUNTIME_KEY]: next });
+    return next;
+  }
+  const local = await chrome.storage.local.get([SAVED_MEETING_KEY, LEGACY_SAVED_MEETING_KEY]);
+  const stored = local[SAVED_MEETING_KEY] || local[LEGACY_SAVED_MEETING_KEY];
+  const restored = normalizeMeetingCoordination(sanitizeMeetingTranscript(stored || createMeeting()));
+  const meeting = normalizeMeetingCoordination({
     ...restored,
+    settings: { ...DEFAULT_MEETING_SETTINGS, ...(restored.settings || {}) },
     status: restored.status === 'FINISHED' ? 'FINISHED' : 'READY',
+    interactionMode: normalizeInteractionMode(restored.interactionMode),
+    topicText: normalizeTopicText(restored.topicText),
     activeTransaction: null,
     participants: (restored.participants || []).map((p) => ({ ...p, tabId: null, url: '', connectionState: 'DISCONNECTED', turnState: 'WAITING' })),
-  };
+  });
   await chrome.storage.session.set({ [ACTIVE_RUNTIME_KEY]: meeting });
+  if (!local[SAVED_MEETING_KEY] && local[LEGACY_SAVED_MEETING_KEY]) {
+    await chrome.storage.local.set({ [SAVED_MEETING_KEY]: durableMeetingState(meeting) });
+  }
   return meeting;
 }
 
@@ -71,7 +155,11 @@ async function broadcastMeeting(meeting) {
 }
 
 async function saveMeeting(meeting, { broadcast = true } = {}) {
-  const next = { ...meeting, updatedAt: Date.now() };
+  const next = normalizeMeetingCoordination({
+    ...meeting,
+    updatedAt: Date.now(),
+    settings: { ...DEFAULT_MEETING_SETTINGS, ...(meeting.settings || {}) },
+  });
   await chrome.storage.session.set({ [ACTIVE_RUNTIME_KEY]: next });
   await chrome.storage.local.set({ [SAVED_MEETING_KEY]: durableMeetingState(next) });
   if (broadcast) await broadcastMeeting(next);
@@ -79,7 +167,14 @@ async function saveMeeting(meeting, { broadcast = true } = {}) {
 }
 
 async function newMeeting(options = {}) {
-  const meeting = createMeeting({ title: options.title || 'New AI Meeting', settings: options.settings || {} });
+  const meeting = createMeeting({
+    title: options.title || 'New AI Meeting',
+    interactionMode: options.interactionMode,
+    topicText: options.topicText,
+    settings: options.settings || {},
+    session: options.session || {},
+    loopGuard: options.loopGuard || {},
+  });
   return saveMeeting(meeting);
 }
 
@@ -126,6 +221,8 @@ async function ensureContent(tabId) {
 
 async function sendToParticipant(participant, message) {
   if (!Number.isInteger(participant?.tabId)) throw new Error(`${participant?.label || 'Participant'} has no bound tab.`);
+  const background = await backgroundTabController.ensure(participant).catch((error) => ({ ok: false, error: error?.message || String(error) }));
+  if (background?.error) console.warn(`[Lee Relay] ${background.error}`);
   await ensureContent(participant.tabId);
   return chrome.tabs.sendMessage(participant.tabId, message);
 }
@@ -153,23 +250,61 @@ function latestTranscriptText(meeting) {
   return [...(meeting.transcript || [])].reverse().find((e) => normalizeText(e.text))?.text || '';
 }
 
-function buildMeetingPrompt(meeting, target) {
-  const budget = Math.max(3000, Number(meeting.settings?.contextCharBudget) || 12000);
-  const participants = meeting.participants.map((p) => p.label).join(', ');
-  const lines = [];
-  let chars = 0;
-  for (let i = meeting.transcript.length - 1; i >= 0; i -= 1) {
-    const entry = meeting.transcript[i];
+function meetingContextEntries(meeting) {
+  const entries = [];
+  for (const entry of meeting.transcript || []) {
+    if (entry.speakerType === 'USER' && isRelayEnvelope(entry.text)) continue;
+    if (meeting.interactionMode === 'autonomous' && entry.speakerType !== 'AI') continue;
+    const cleanedText = entry.speakerType === 'AI'
+      ? sanitizeRelayResponse(entry.text, '')
+      : normalizeText(entry.text);
+    if (!cleanedText) continue;
     const speaker = entry.speakerType === 'USER'
       ? 'User'
       : (participantById(meeting, entry.participantId)?.label || entry.provider || entry.speakerType);
-    const block = `${speaker}: ${normalizeText(entry.text)}`;
-    if (!normalizeText(entry.text)) continue;
-    if (chars + block.length > budget && lines.length) break;
-    lines.unshift(block);
-    chars += block.length;
+    entries.push({ speaker, text: cleanedText });
   }
-  return `[LEE RELAY MEETING]\nMeeting: ${meeting.title}\nParticipants: ${participants}\nYou are: ${target.label}\n\n[RECENT DISCUSSION]\n${lines.join('\n\n')}\n\n[YOUR TURN]\nContinue the meeting naturally.\nRespond to the group's current topic.\nIf you clearly want a specific participant to answer next, address them by participant name.`;
+  return entries;
+}
+
+function buildMeetingContextPlan(meeting, target, entries = meetingContextEntries(meeting)) {
+  const phase = meeting.session?.status === 'COMPLETE' ? null : currentSessionPhase(meeting.session);
+  const options = {
+    provider: target.provider,
+    meetingTitle: meeting.title,
+    targetLabel: target.label,
+    participants: meeting.participants.map((p) => p.label),
+    turnNumber: meeting.currentTurn + 1,
+    topicText: meeting.topicText,
+    role: target.role,
+    rolePrompt: target.rolePrompt,
+    sessionPhase: phase,
+    entries,
+  };
+  return meeting.interactionMode === 'autonomous'
+    ? buildAutonomousContextPlan(options)
+    : buildAdaptiveContextPlan(options);
+}
+
+function buildMeetingPrompt(meeting, target) {
+  return buildMeetingContextPlan(meeting, target).promptText;
+}
+
+function buildFallbackPrompt(meeting, participant, entries) {
+  const phase = meeting.session?.status === 'COMPLETE' ? null : currentSessionPhase(meeting.session);
+  const options = {
+    provider: participant.provider,
+    targetLabel: participant.label,
+    participants: meeting.participants.map((p) => p.label),
+    topicText: meeting.topicText,
+    role: participant.role,
+    rolePrompt: participant.rolePrompt,
+    sessionPhase: phase,
+    entries,
+  };
+  return meeting.interactionMode === 'autonomous'
+    ? buildAutonomousFallbackInlinePrompt(options)
+    : buildFallbackInlinePrompt(options);
 }
 
 function setParticipantTurnStates(meeting, activeId, activeState) {
@@ -200,6 +335,10 @@ async function armResponse(meeting, participant, tx) {
     baselineAssistantSignature: tx.preAssistantSignature || null,
   });
   if (!response?.ok) throw new Error(response?.error || 'Failed to arm response observer.');
+  // Do not rely on provider-page timers alone. Hidden Gemini/Copilot tabs can
+  // throttle them, so the extension service worker schedules a near-term status
+  // verification as an independent second wake-up path.
+  scheduleActiveTurnCheck();
 }
 
 async function confirmDelivery(meeting, tx, evidence) {
@@ -216,6 +355,7 @@ async function confirmDelivery(meeting, tx, evidence) {
 
 async function ensurePreparedOnPage(meeting, participant, tx, { captureBaseline = false } = {}) {
   await sendToParticipant(participant, { type: 'ATTACH_PARTICIPANT', meetingId: meeting.id, participantId: participant.id });
+  const restore = !captureBaseline && tx.baselineCaptured;
   const response = await sendToParticipant(participant, {
     type: 'PREPARE_DELIVERY',
     meetingId: meeting.id,
@@ -223,9 +363,17 @@ async function ensurePreparedOnPage(meeting, participant, tx, { captureBaseline 
     participantId: participant.id,
     text: tx.promptText,
     promptSignature: tx.promptSignature,
+    baselineCaptured: Boolean(restore),
+    ...(restore ? {
+      baselineAssistantSignature: tx.preAssistantSignature ?? null,
+      baselineAssistantCount: Number(tx.preAssistantCount) || 0,
+      baselineUserSignature: tx.preUserSignature ?? null,
+      baselineUserCount: Number(tx.preUserCount) || 0,
+      baselineGenerating: Boolean(tx.preGenerating),
+      baselineUrl: tx.preUrl || '',
+    } : {}),
   });
   if (!response?.ok) throw new Error(response?.error || 'Failed to prepare delivery.');
-  if (captureBaseline) return response;
   return response;
 }
 
@@ -255,38 +403,28 @@ async function deliveryWithRetries(meetingId) {
   const participant = participantById(meeting, tx.participantId);
   if (!participant) return enterNeedsAttention(meeting, 'Target participant no longer exists.', tx.stage);
 
+  // Once a send action has happened, Lee Relay uses at-most-once delivery.
+  // Provider DOM verification is fallible; automatically clicking Send again
+  // can create the exact duplicate turns seen on Gemini. Retries below are
+  // re-verification attempts only. A human may explicitly request a retry.
   while (true) {
-    let evidence = await verifyDelivery(meeting, participant, tx, 7000).catch(() => ({ matchingUserMessage: false }));
-    if (deliveryEvidenceConfirmed({ ...evidence, sendActionExecuted: true })) return confirmDelivery(meeting, tx, { ...evidence, sendActionExecuted: true });
+    const evidence = await verifyDelivery(meeting, participant, tx, tx.attempt === 0 ? 7000 : 3000)
+      .catch(() => ({ matchingUserMessage: false }));
+    const enriched = {
+      ...evidence,
+      sendActionExecuted: Boolean(tx.sendActionExecuted),
+      inputPrimed: Boolean(tx.inputPrimed || evidence.inputPrimed),
+    };
+    if (deliveryEvidenceConfirmed(enriched)) return confirmDelivery(meeting, tx, enriched);
 
-    if (!shouldRetryTransaction(tx)) return enterNeedsAttention(meeting, `${participant.label} delivery could not be confirmed after ${tx.attempt} retries.`, 'VERIFYING_DELIVERY');
-
-    tx = markTransactionRetry(tx, 'Delivery not confirmed');
-    meeting = { ...meeting, activeTransaction: tx };
-    meeting = withActivity(meeting, `Delivery not confirmed · retry ${tx.attempt}/${tx.retryLimit}`, { level: 'WARN', stage: 'RETRYING', participantId: tx.participantId, transactionId: tx.transactionId });
-    meeting = await saveMeeting(meeting);
-
-    evidence = await verifyDelivery(meeting, participant, tx, 1800).catch(() => ({ matchingUserMessage: false }));
-    if (deliveryEvidenceConfirmed({ ...evidence, sendActionExecuted: true })) return confirmDelivery(meeting, tx, { ...evidence, sendActionExecuted: true });
-
-    try {
-      await ensurePreparedOnPage(meeting, participant, tx, { captureBaseline: false });
-      tx = transitionTransaction(tx, 'SENDING');
-      meeting = { ...meeting, activeTransaction: tx };
-      meeting = updateParticipant(meeting, participant.id, { turnState: 'SENDING' });
-      meeting = await saveMeeting(meeting);
-      const sent = await sendToParticipant(participant, {
-        type: 'SUBMIT_MESSAGE', meetingId: meeting.id, transactionId: tx.transactionId, participantId: participant.id, text: tx.promptText,
-      });
-      if (!sent?.ok || !sent.sendActionExecuted) throw new Error(sent?.error || 'Send action failed.');
-      tx = transitionTransaction(tx, 'VERIFYING_DELIVERY');
-      meeting = { ...meeting, activeTransaction: tx };
-      meeting = updateParticipant(meeting, participant.id, { turnState: 'VERIFYING' });
-      meeting = withActivity(meeting, 'Send action executed; verifying delivery', { stage: 'VERIFYING_DELIVERY', participantId: participant.id, transactionId: tx.transactionId });
-      meeting = await saveMeeting(meeting);
-    } catch (error) {
-      if (!shouldRetryTransaction(tx)) return enterNeedsAttention(meeting, `${participant.label}: ${error.message || String(error)}`, tx.stage);
+    if (!shouldRetryTransaction(tx)) {
+      return enterNeedsAttention(meeting, `${participant.label} delivery verification stayed inconclusive. Lee Relay did not resend automatically, to prevent a duplicate message.`, 'VERIFYING_DELIVERY');
     }
+
+    tx = markTransactionRetry(tx, 'Delivery verification inconclusive; re-verifying without resending');
+    meeting = { ...meeting, activeTransaction: tx };
+    meeting = withActivity(meeting, `Delivery verification inconclusive · re-verify ${tx.attempt}/${tx.retryLimit} (no resend)`, { level: 'WARN', stage: 'RETRYING', participantId: tx.participantId, transactionId: tx.transactionId });
+    meeting = await saveMeeting(meeting);
   }
 }
 
@@ -301,8 +439,10 @@ async function executeTurn(participantId) {
     return saveMeeting(meeting);
   }
 
-  const promptText = buildMeetingPrompt(meeting, participant);
-  const promptSignature = await signatureFor(promptText);
+  const contextEntries = meetingContextEntries(meeting);
+  let contextPlan = buildMeetingContextPlan(meeting, participant, contextEntries);
+  let promptText = contextPlan.promptText;
+  let promptSignature = await signatureFor(promptText);
   let tx = createTransaction({
     meetingId: meeting.id,
     participantId: participant.id,
@@ -312,10 +452,12 @@ async function executeTurn(participantId) {
     promptSignature,
     retryLimit: meeting.settings.retryLimit,
     responseTimeoutMs: meeting.settings.responseTimeoutMs,
+    contextMode: contextPlan.mode,
+    contextFileName: contextPlan.contextFile?.name || '',
   });
   meeting = { ...meeting, activeTransaction: tx, nextSpeakerParticipantId: participant.id };
   meeting = setParticipantTurnStates(meeting, participant.id, 'SENDING');
-  meeting = withActivity(meeting, `Turn ${tx.turnNumber} prepared → ${participant.label}`, { stage: 'PREPARING', participantId: participant.id, transactionId: tx.transactionId });
+  meeting = withActivity(meeting, `Turn ${tx.turnNumber} prepared → ${participant.label} · context ${contextPlan.mode.toUpperCase()}`, { stage: 'PREPARING', participantId: participant.id, transactionId: tx.transactionId });
   meeting = await saveMeeting(meeting);
 
   try {
@@ -324,7 +466,61 @@ async function executeTurn(participantId) {
     tx = meeting.activeTransaction;
     const baseline = await ensurePreparedOnPage(meeting, participant, tx, { captureBaseline: true });
     if (baseline.generating) throw new Error(`${participant.label} is already generating a response. Wait for it to finish before starting this turn.`);
-    tx = { ...tx, preAssistantSignature: baseline.assistantSignature || null, preUserSignature: baseline.userSignature || null };
+    tx = {
+      ...tx,
+      preAssistantSignature: baseline.assistantSignature || null,
+      preAssistantCount: Number(baseline.assistantCount) || 0,
+      preUserSignature: baseline.userSignature || null,
+      preUserCount: Number(baseline.userCount) || 0,
+      preGenerating: Boolean(baseline.generating),
+      preUrl: baseline.url || '',
+      baselineCaptured: true,
+    };
+    meeting = { ...meeting, activeTransaction: tx };
+    meeting = await saveMeeting(meeting);
+
+    if (contextPlan.mode === 'file' && contextPlan.contextFile) {
+      const attachmentResult = await sendToParticipant(participant, {
+        type: 'ATTACH_CONTEXT_FILE',
+        meetingId: meeting.id,
+        transactionId: tx.transactionId,
+        participantId: participant.id,
+        fileName: contextPlan.contextFile.name,
+        fileText: contextPlan.contextFile.text,
+        mimeType: contextPlan.contextFile.mimeType,
+      }).catch((error) => ({ ok: false, attached: false, error: error.message || String(error) }));
+
+      if (!attachmentResult?.ok || !attachmentResult.attached) {
+        promptText = buildFallbackPrompt(meeting, participant, contextEntries);
+        promptSignature = await signatureFor(promptText);
+        contextPlan = { ...contextPlan, mode: 'fallback-inline', promptText, contextFile: null };
+        tx = {
+          ...tx,
+          promptText,
+          promptSignature,
+          contextMode: 'fallback-inline',
+          contextFileName: '',
+          contextAttachmentConfirmed: false,
+        };
+        meeting = { ...meeting, activeTransaction: tx };
+        meeting = withActivity(meeting, `Context file unavailable for ${participant.label}; using bounded inline fallback (${promptText.length} chars).`, { level: 'WARN', stage: 'PREPARING', participantId: participant.id, transactionId: tx.transactionId });
+        meeting = await saveMeeting(meeting);
+        await ensurePreparedOnPage(meeting, participant, tx, { captureBaseline: false });
+      } else {
+        tx = {
+          ...tx,
+          contextAttachmentConfirmed: Boolean(attachmentResult.confirmed),
+          contextFileName: attachmentResult.fileName || contextPlan.contextFile.name,
+        };
+        meeting = { ...meeting, activeTransaction: tx };
+        meeting = withActivity(meeting, `Context file attached → ${tx.contextFileName} (${contextPlan.contextFile.text.length} chars)`, { stage: 'PREPARING', participantId: participant.id, transactionId: tx.transactionId });
+        meeting = await saveMeeting(meeting);
+      }
+    } else if (contextPlan.mode === 'compact') {
+      meeting = withActivity(meeting, `Context compacted for ${participant.label} (${promptText.length} chars).`, { stage: 'PREPARING', participantId: participant.id, transactionId: tx.transactionId });
+      meeting = await saveMeeting(meeting);
+    }
+
     tx = transitionTransaction(tx, 'SENDING');
     meeting = { ...meeting, activeTransaction: tx };
     meeting = await saveMeeting(meeting);
@@ -333,6 +529,7 @@ async function executeTurn(participantId) {
       type: 'SUBMIT_MESSAGE', meetingId: meeting.id, transactionId: tx.transactionId, participantId: participant.id, text: promptText,
     });
     if (!sent?.ok || !sent.sendActionExecuted) throw new Error(sent?.error || 'Send action failed.');
+    tx = { ...tx, sendActionExecuted: true, inputPrimed: Boolean(sent.inputPrimed) };
 
     tx = transitionTransaction(tx, 'VERIFYING_DELIVERY');
     meeting = { ...meeting, activeTransaction: tx };
@@ -345,18 +542,51 @@ async function executeTurn(participantId) {
   }
 }
 
-function scheduleSpeaker(meeting, latestText, currentParticipantId = null, delayMs = null) {
+function loopGuardActive(meeting) {
+  if (meeting.interactionMode === 'autonomous') return meeting.settings?.loopGuardEnabled !== false;
+  return meeting.settings?.loopGuardInteractive === true;
+}
+
+function loopGuardSettings(meeting) {
+  return {
+    enabled: loopGuardActive(meeting),
+    maxHops: meeting.settings?.loopGuardMaxHops,
+    maxSameSpeaker: meeting.settings?.loopGuardMaxSameSpeaker,
+    maxSameRoute: meeting.settings?.loopGuardMaxSameRoute,
+  };
+}
+
+async function scheduleSpeaker(meeting, latestText, currentParticipantId = null, delayMs = null) {
   if (meeting.status !== 'LIVE' || meeting.activeTransaction) return null;
   const target = selectNextSpeaker(meeting, latestText, currentParticipantId);
   if (!target) return null;
+  let next = meeting;
+  if (currentParticipantId && loopGuardActive(meeting)) {
+    const state = recordLoopGuardHop(meeting.loopGuard, { speakerId: currentParticipantId, targetId: target.id });
+    const decision = loopGuardDecision(state, loopGuardSettings(meeting));
+    next = { ...meeting, loopGuard: decision.state };
+    if (decision.blocked) {
+      next = setMeetingStatus({ ...next, activeTransaction: null, nextSpeakerParticipantId: null }, 'PAUSED');
+      next = withActivity(next, decision.reason, { level: 'WARN', stage: 'LOOP_GUARD', participantId: target.id });
+      await backgroundTabController.releaseAll().catch(() => {});
+      await saveMeeting(next);
+      return null;
+    }
+    await saveMeeting(next);
+  }
   const delay = delayMs == null ? Math.max(0, Number(meeting.settings.minDelayMs) || 0) : delayMs;
   setTimeout(() => enqueue(() => executeTurn(target.id)).catch(() => {}), delay);
   return target;
 }
 
-async function startMeeting(seedText = '') {
+async function startMeeting(seedText = '', requestedMode = null) {
   let meeting = await getMeeting();
   if (meeting.status === 'LIVE') return meeting;
+  if (meeting.status === 'READY' && meeting.activeTransaction) {
+    meeting = { ...meeting, activeTransaction: null, nextSpeakerParticipantId: null };
+  }
+  const interactionMode = normalizeInteractionMode(requestedMode ?? meeting.interactionMode);
+  meeting = { ...meeting, interactionMode };
   const connected = meeting.participants.filter((p) => Number.isInteger(p.tabId));
   if (connected.length < 2) throw new Error('Connect at least two AI participants before starting.');
   for (const p of connected) {
@@ -371,16 +601,28 @@ async function startMeeting(seedText = '') {
     throw new Error('At least two AI participants must reconnect successfully before starting.');
   }
   const normalizedSeed = normalizeText(seedText);
-  const latestUserText = normalizeText([...meeting.transcript].reverse().find((entry) => entry.speakerType === 'USER' && normalizeText(entry.text))?.text || '');
-  if (normalizedSeed && normalizedSeed !== latestUserText) {
-    meeting = appendTranscript(meeting, { speakerType: 'USER', text: normalizedSeed, turnNumber: meeting.currentTurn });
+  if (normalizedSeed && isRelayEnvelope(normalizedSeed)) throw new Error('Lee Relay internal meeting envelopes cannot be used as a human starting topic.');
+  if (interactionMode === 'autonomous') {
+    const topicText = autonomousSeed({ meeting, seedText: normalizedSeed });
+    if (!topicText) throw new Error('Write a starting topic before starting Full Auto.');
+    meeting = { ...meeting, topicText };
+  } else {
+    const latestUserText = normalizeText([...meeting.transcript].reverse().find((entry) => entry.speakerType === 'USER' && normalizeText(entry.text))?.text || '');
+    if (normalizedSeed && normalizedSeed !== latestUserText) {
+      meeting = appendTranscript(meeting, { speakerType: 'USER', text: normalizedSeed, turnNumber: meeting.currentTurn });
+    }
+    if (!meeting.transcript.some((e) => normalizeText(e.text))) throw new Error('Write a starting topic before starting the meeting.');
   }
-  if (!meeting.transcript.some((e) => normalizeText(e.text))) throw new Error('Write a starting topic before starting the meeting.');
+  meeting = {
+    ...meeting,
+    session: startSession(meeting.session),
+    loopGuard: createLoopGuardState(meeting.loopGuard),
+  };
   meeting = setMeetingStatus(meeting, 'LIVE');
-  meeting = withActivity(meeting, 'Meeting started.');
+  meeting = withActivity(meeting, interactionMode === 'autonomous' ? 'Full Auto meeting started.' : 'Meeting started.');
   meeting = await saveMeeting(meeting);
   const latest = latestTranscriptText(meeting);
-  scheduleSpeaker(meeting, latest, null, 0);
+  scheduleSpeaker(meeting, latest, null, 0).catch(() => {});
   return meeting;
 }
 
@@ -389,14 +631,18 @@ async function completeResponse(message, senderTabId) {
   const tx = meeting.activeTransaction;
   if (!tx || !canAcceptEvent(tx, { ...message, tabId: senderTabId })) return meeting;
   if (!normalizeText(message.text) || !message.signature) return meeting;
+  const cleanResponseText = sanitizeRelayResponse(message.text, tx.promptText);
+  if (!cleanResponseText) return meeting;
   const participant = participantById(meeting, tx.participantId);
   if (!participant) return meeting;
-  if (participant.lastKnownAssistantSignature === message.signature) return enterNeedsAttention(meeting, `${participant.label} returned a duplicate response.`, 'VERIFYING_RESPONSE');
+  if (participant.lastKnownAssistantSignature === message.signature && !message.assistantNodeAdvanced) {
+    return enterNeedsAttention(meeting, `${participant.label} returned a duplicate response.`, 'VERIFYING_RESPONSE');
+  }
 
   let verify = null;
   try {
     verify = await sendToParticipant(participant, { type: 'GET_TRANSACTION_STATUS', meetingId: meeting.id, transactionId: tx.transactionId, participantId: participant.id });
-  } catch { }
+  } catch { /* event itself remains usable if page changed immediately after sending it */ }
   if (verify?.ok && (!(verify.deliveryConfirmed || verify.matchingUserMessage) || verify.assistantSignature !== message.signature || !verify.changed)) {
     return enterNeedsAttention(meeting, `${participant.label} response could not be correlated to the current turn.`, 'VERIFYING_RESPONSE');
   }
@@ -404,15 +650,27 @@ async function completeResponse(message, senderTabId) {
   let nextTx = tx;
   if (nextTx.stage === 'WAITING_FOR_GENERATION') nextTx = transitionTransaction(nextTx, 'RECEIVING');
   if (nextTx.stage === 'RECEIVING' || nextTx.stage === 'DELIVERED' || nextTx.stage === 'WAITING_FOR_GENERATION') nextTx = transitionTransaction(nextTx, 'VERIFYING_RESPONSE');
-  nextTx = transitionTransaction(nextTx, 'COMPLETE', { responseText: normalizeText(message.text), responseSignature: message.signature, error: '' });
+  nextTx = transitionTransaction(nextTx, 'COMPLETE', { responseText: cleanResponseText, responseSignature: message.signature, error: '' });
 
   meeting = { ...meeting, activeTransaction: nextTx };
   meeting = updateParticipant(meeting, participant.id, { turnState: 'SPEAKING', lastKnownAssistantSignature: message.signature, lastSeenAt: Date.now() });
   meeting = appendTranscript(meeting, {
-    speakerType: 'AI', participantId: participant.id, provider: participant.provider, text: normalizeText(message.text), turnNumber: tx.turnNumber,
+    speakerType: 'AI', participantId: participant.id, provider: participant.provider, text: cleanResponseText, turnNumber: tx.turnNumber,
     deliveryStatus: 'CONFIRMED', responseStatus: 'CONFIRMED', transactionId: tx.transactionId,
   });
   meeting = { ...meeting, currentTurn: meeting.currentTurn + 1, activeTransaction: null };
+  const previousSession = meeting.session;
+  const nextSession = recordSessionTurn(previousSession);
+  meeting = { ...meeting, session: nextSession };
+  if (nextSession.status === 'COMPLETE') {
+    meeting = withActivity(meeting, `Session complete ??${nextSession.templateId}.`, { stage: 'SESSION_COMPLETE' });
+    meeting = setMeetingStatus(meeting, 'FINISHED');
+    return saveMeeting(meeting);
+  }
+  if (nextSession.phaseIndex !== previousSession.phaseIndex) {
+    meeting = withActivity(meeting, `Session phase advanced ??${currentSessionPhase(nextSession).name}.`, { stage: 'SESSION_PHASE' });
+  }
+
   meeting = withActivity(meeting, `Turn ${tx.turnNumber} complete ← ${participant.label}`, { stage: 'COMPLETE', participantId: participant.id, transactionId: tx.transactionId });
 
   if (meeting.settings.maxTurns > 0 && meeting.currentTurn >= meeting.settings.maxTurns) {
@@ -422,7 +680,7 @@ async function completeResponse(message, senderTabId) {
   }
   meeting = await saveMeeting(meeting);
   maybeCaptureScreenshot(meeting, participant, tx.turnNumber).catch(() => {});
-  if (meeting.status === 'LIVE') scheduleSpeaker(meeting, message.text, participant.id);
+  if (meeting.status === 'LIVE') await scheduleSpeaker(meeting, cleanResponseText, participant.id);
   return meeting;
 }
 
@@ -481,8 +739,26 @@ async function watchdogRecover() {
         return meeting;
       }
     }
-    if (status?.ok && (status.deliveryConfirmed || status.matchingUserMessage) && status.changed && status.assistantSignature && status.assistantText && (!status.generating || status.stableMs >= 90000)) {
-      return completeResponse({ meetingId: meeting.id, transactionId: tx.transactionId, participantId: participant.id, text: status.assistantText, signature: status.assistantSignature }, participant.tabId);
+    const quietMs = Math.max(500, Number(status?.quietMs) || 2000);
+    const responseStable = Boolean(status?.changed && Number(status.stableMs) >= quietMs);
+    if (status?.ok && (status.deliveryConfirmed || status.matchingUserMessage) && responseStable && status.assistantSignature && status.assistantText && (!status.generating || status.stableMs >= 90000)) {
+      return completeResponse({
+        meetingId: meeting.id,
+        transactionId: tx.transactionId,
+        participantId: participant.id,
+        text: status.assistantText,
+        signature: status.assistantSignature,
+        assistantNodeAdvanced: Boolean(status.assistantNodeAdvanced),
+        assistantCount: Number(status.assistantCount) || 0,
+      }, participant.tabId);
+    }
+    if (status?.ok && !transactionTimedOut(tx)) {
+      // Keep checking the current provider tab while its response settles. This
+      // is independent of which browser tab the user is viewing.
+      const remainingQuiet = status.changed
+        ? Math.max(150, quietMs - Number(status.stableMs || 0) + 100)
+        : ACTIVE_TURN_CHECK_DELAY_MS;
+      scheduleActiveTurnCheck(Math.min(ACTIVE_TURN_CHECK_DELAY_MS, remainingQuiet));
     }
     if (transactionTimedOut(tx)) {
       const recoveries = Number(tx.recoveryCount) || 0;
@@ -501,6 +777,7 @@ async function handleCommand(message, sender) {
   switch (message.type) {
     case 'GET_MEETING_STATE': return { ok: true, meeting: publicMeetingState(await getMeeting()) };
     case 'LIST_SUPPORTED_TABS': return { ok: true, tabs: await listSupportedTabs() };
+    case 'CHECK_ACTIVE_TURN': return { ok: true, meeting: publicMeetingState(await watchdogRecover()) };
     case 'NEW_MEETING': return { ok: true, meeting: await newMeeting(message.options || {}) };
     case 'ADD_PARTICIPANT': {
       let m = await getMeeting();
@@ -510,6 +787,8 @@ async function handleCommand(message, sender) {
     case 'REMOVE_PARTICIPANT': {
       let m = await getMeeting();
       if (m.activeTransaction?.participantId === message.participantId) throw new Error('Skip or end the active turn before removing this participant.');
+      const removed = participantById(m, message.participantId);
+      await backgroundTabController.release(removed).catch(() => {});
       m = removeParticipant(m, message.participantId);
       return { ok: true, meeting: await saveMeeting(m) };
     }
@@ -523,23 +802,49 @@ async function handleCommand(message, sender) {
       m = await attachParticipant(m, message.participantId).catch(() => updateParticipant(m, message.participantId, { connectionState: 'ERROR' }));
       return { ok: true, meeting: await saveMeeting(m) };
     }
-    case 'START_MEETING': return { ok: true, meeting: await startMeeting(message.seedText || '') };
+    case 'START_MEETING': return { ok: true, meeting: await startMeeting(message.seedText || '', message.mode || null) };
+    case 'SET_INTERACTION_MODE': {
+      let m = await getMeeting();
+      if (!canChangeInteractionMode(m)) throw new Error('Pause the meeting and finish the active turn before changing modes.');
+      const mode = normalizeInteractionMode(message.mode);
+      const topicText = mode === 'autonomous'
+        ? (normalizeTopicText(m.topicText) || normalizeText([...m.transcript].reverse().find((entry) => entry.speakerType === 'USER' && normalizeText(entry.text))?.text || ''))
+        : m.topicText;
+      m = {
+        ...m,
+        interactionMode: mode,
+        topicText,
+        ...(m.status === 'READY' ? { activeTransaction: null, nextSpeakerParticipantId: null } : {}),
+      };
+      m = withActivity(m, mode === 'autonomous' ? 'Full Auto mode selected.' : 'Interactive mode selected.');
+      return { ok: true, meeting: await saveMeeting(m) };
+    }
     case 'PAUSE_MEETING': {
       let m = setMeetingStatus(await getMeeting(), 'PAUSED');
+      await backgroundTabController.releaseAll().catch(() => {});
       m = withActivity(m, 'Meeting paused by user.');
       return { ok: true, meeting: await saveMeeting(m) };
     }
     case 'RESUME_MEETING': {
       let m = await getMeeting();
+      const resumedSession = m.session?.status === 'IDLE'
+        ? startSession(m.session)
+        : { ...normalizeSession(m.session), status: 'RUNNING' };
+      m = {
+        ...m,
+        session: resumedSession,
+        loopGuard: createLoopGuardState(m.loopGuard),
+      };
       m = setMeetingStatus(m, 'LIVE');
       m = withActivity(m, 'Meeting resumed.');
       m = await saveMeeting(m);
       if (m.activeTransaction) setTimeout(() => enqueue(() => watchdogRecover()), 0);
-      else scheduleSpeaker(m, latestTranscriptText(m), null, 0);
-      return { ok: true, meeting: m };
+      else await scheduleSpeaker(m, latestTranscriptText(m), null, 0);
+      return { ok: true, meeting: await getMeeting() };
     }
     case 'END_MEETING': {
       let m = await getMeeting();
+      await backgroundTabController.releaseAll().catch(() => {});
       m = setMeetingStatus({ ...m, activeTransaction: null, nextSpeakerParticipantId: null }, 'FINISHED');
       m = withActivity(m, 'Meeting ended by user.');
       return { ok: true, meeting: await saveMeeting(m) };
@@ -548,10 +853,17 @@ async function handleCommand(message, sender) {
       let m = await getMeeting();
       const text = normalizeText(message.text || '');
       if (!text) throw new Error('Message is empty.');
-      m = appendTranscript(m, { speakerType: 'USER', text, turnNumber: m.currentTurn });
-      m = withActivity(m, 'User added a message to the room.');
+      if (!canAcceptUserMessage(m)) throw new Error('Full Auto is observing only. Pause and join the conversation to send a user message.');
+      if (isRelayEnvelope(text)) throw new Error('Lee Relay internal meeting envelopes cannot be added as human messages.');
+      if (m.interactionMode === 'autonomous') {
+        m = { ...m, topicText: text };
+        m = withActivity(m, 'Full Auto topic updated.');
+      } else {
+        m = appendTranscript(m, { speakerType: 'USER', text, turnNumber: m.currentTurn });
+        m = withActivity(m, 'User added a message to the room.');
+      }
       m = await saveMeeting(m);
-      if (m.status === 'LIVE' && !m.activeTransaction) scheduleSpeaker(m, text, null, 0);
+      if (m.status === 'LIVE' && !m.activeTransaction) await scheduleSpeaker(m, text, null, 0);
       return { ok: true, meeting: m };
     }
     case 'UPDATE_MEETING_TITLE': {
@@ -562,6 +874,11 @@ async function handleCommand(message, sender) {
     case 'UPDATE_MEETING_SETTINGS': {
       let m = await getMeeting();
       const patch = message.settings || {};
+      const guardNumber = (key, fallback) => {
+        if (!Object.hasOwn(patch, key)) return fallback;
+        const value = Number(patch[key]);
+        return Number.isFinite(value) ? Math.min(100000, Math.max(0, Math.floor(value))) : fallback;
+      };
       m = { ...m, settings: {
         ...m.settings,
         ...(Object.hasOwn(patch,'maxTurns') ? { maxTurns: Math.max(0, Number(patch.maxTurns) || 0) } : {}),
@@ -570,18 +887,76 @@ async function handleCommand(message, sender) {
         ...(Object.hasOwn(patch,'captureScreenshots') ? { captureScreenshots: Boolean(patch.captureScreenshots) } : {}),
         ...(Object.hasOwn(patch,'retryLimit') ? { retryLimit: Math.min(5, Math.max(0, Number(patch.retryLimit) || 0)) } : {}),
         ...(Object.hasOwn(patch,'responseTimeoutMs') ? { responseTimeoutMs: Math.max(30000, Number(patch.responseTimeoutMs) || 120000) } : {}),
+        ...(Object.hasOwn(patch,'loopGuardEnabled') ? { loopGuardEnabled: Boolean(patch.loopGuardEnabled) } : {}),
+        ...(Object.hasOwn(patch,'loopGuardInteractive') ? { loopGuardInteractive: Boolean(patch.loopGuardInteractive) } : {}),
+        ...(Object.hasOwn(patch,'loopGuardMaxHops') ? { loopGuardMaxHops: guardNumber('loopGuardMaxHops', m.settings.loopGuardMaxHops) } : {}),
+        ...(Object.hasOwn(patch,'loopGuardMaxSameSpeaker') ? { loopGuardMaxSameSpeaker: guardNumber('loopGuardMaxSameSpeaker', m.settings.loopGuardMaxSameSpeaker) } : {}),
+        ...(Object.hasOwn(patch,'loopGuardMaxSameRoute') ? { loopGuardMaxSameRoute: guardNumber('loopGuardMaxSameRoute', m.settings.loopGuardMaxSameRoute) } : {}),
       } };
+      m = { ...m, loopGuard: {
+        ...m.loopGuard,
+        enabled: m.settings.loopGuardEnabled !== false,
+        maxHops: m.settings.loopGuardMaxHops,
+        maxSameSpeaker: m.settings.loopGuardMaxSameSpeaker,
+        maxSameRoute: m.settings.loopGuardMaxSameRoute,
+      } };
+      return { ok: true, meeting: await saveMeeting(m) };
+    }
+    case 'UPDATE_PARTICIPANT_COORDINATION': {
+      let m = await getMeeting();
+      if (!canChangeInteractionMode(m)) throw new Error('Pause the meeting and finish the active turn before changing participant roles.');
+      const participant = participantById(m, message.participantId);
+      if (!participant) throw new Error('Participant not found.');
+      const coordination = normalizeParticipantCoordination({ role: message.role, rolePrompt: message.rolePrompt });
+      m = updateParticipant(m, participant.id, { role: coordination.role, rolePrompt: coordination.rolePrompt });
+      m = withActivity(m, `${participant.label} role updated.`);
+      return { ok: true, meeting: await saveMeeting(m) };
+    }
+    case 'UPDATE_SESSION_TEMPLATE': {
+      let m = await getMeeting();
+      if (!canChangeInteractionMode(m)) throw new Error('Pause the meeting and finish the active turn before changing the session.');
+      m = { ...m, session: normalizeSession({ templateId: message.templateId, status: 'IDLE' }) };
+      m = withActivity(m, `Session template selected ??${m.session.templateId}.`);
+      return { ok: true, meeting: await saveMeeting(m) };
+    }
+    case 'UPDATE_LOOP_GUARD': {
+      let m = await getMeeting();
+      if (!canChangeInteractionMode(m)) throw new Error('Pause the meeting and finish the active turn before changing Loop Guard.');
+      const patch = message.settings || {};
+      const guardNumber = (key, fallback) => {
+        const value = Number(patch[key]);
+        return Number.isFinite(value) ? Math.min(100000, Math.max(0, Math.floor(value))) : fallback;
+      };
+      const settings = {
+        ...m.settings,
+        ...(Object.hasOwn(patch, 'loopGuardEnabled') ? { loopGuardEnabled: Boolean(patch.loopGuardEnabled) } : {}),
+        ...(Object.hasOwn(patch, 'loopGuardInteractive') ? { loopGuardInteractive: Boolean(patch.loopGuardInteractive) } : {}),
+        ...(Object.hasOwn(patch, 'loopGuardMaxHops') ? { loopGuardMaxHops: guardNumber('loopGuardMaxHops', m.settings.loopGuardMaxHops) } : {}),
+        ...(Object.hasOwn(patch, 'loopGuardMaxSameSpeaker') ? { loopGuardMaxSameSpeaker: guardNumber('loopGuardMaxSameSpeaker', m.settings.loopGuardMaxSameSpeaker) } : {}),
+        ...(Object.hasOwn(patch, 'loopGuardMaxSameRoute') ? { loopGuardMaxSameRoute: guardNumber('loopGuardMaxSameRoute', m.settings.loopGuardMaxSameRoute) } : {}),
+      };
+      m = { ...m, settings, loopGuard: {
+        ...m.loopGuard,
+        enabled: settings.loopGuardEnabled !== false,
+        maxHops: settings.loopGuardMaxHops,
+        maxSameSpeaker: settings.loopGuardMaxSameSpeaker,
+        maxSameRoute: settings.loopGuardMaxSameRoute,
+      } };
+      m = withActivity(m, 'Loop Guard settings updated.');
       return { ok: true, meeting: await saveMeeting(m) };
     }
     case 'RETRY_TRANSACTION': {
       let m = await getMeeting();
       const tx = m.activeTransaction;
       if (!tx) throw new Error('There is no transaction to retry.');
-      const reset = { ...tx, stage: 'RETRYING', error: '', attempt: Math.max(0, Math.min(tx.attempt || 0, tx.retryLimit - 1)), lastProgressAt: Date.now(), updatedAt: Date.now() };
-      m = setMeetingStatus({ ...m, activeTransaction: reset }, 'LIVE');
-      m = withActivity(m, 'Manual retry requested.', { stage: 'RETRYING', participantId: tx.participantId, transactionId: tx.transactionId });
+      const participantId = tx.participantId;
+      // Automatic recovery is at-most-once. A fresh send is allowed only when
+      // the human explicitly presses Retry, and it gets a fresh transaction id
+      // so stale provider events cannot complete the new attempt.
+      m = setMeetingStatus({ ...m, activeTransaction: null }, 'LIVE');
+      m = withActivity(m, 'Manual retry requested; starting a fresh transaction.', { stage: 'RETRYING', participantId, transactionId: tx.transactionId });
       m = await saveMeeting(m);
-      setTimeout(() => enqueue(() => watchdogRecover()), 0);
+      setTimeout(() => enqueue(() => executeTurn(participantId)), 0);
       return { ok: true, meeting: m };
     }
     case 'SKIP_PARTICIPANT': {
@@ -593,9 +968,8 @@ async function handleCommand(message, sender) {
       m = updateParticipant(m, currentId, { turnState: 'LISTENING' });
       m = setMeetingStatus({ ...m, activeTransaction: null }, 'LIVE');
       m = await saveMeeting(m);
-      const target = nextRoundRobinParticipant(m, currentId);
-      if (target) setTimeout(() => enqueue(() => executeTurn(target.id)), 0);
-      return { ok: true, meeting: m };
+      await scheduleSpeaker(m, latestTranscriptText(m), currentId, 0);
+      return { ok: true, meeting: await getMeeting() };
     }
     case 'RECONNECT_PARTICIPANT': {
       let m = await getMeeting();
@@ -608,7 +982,15 @@ async function handleCommand(message, sender) {
     case 'CLEAR_TRANSCRIPT': {
       let m = await getMeeting();
       if (m.status === 'LIVE' && m.activeTransaction) throw new Error('Pause or end the active turn before clearing the transcript.');
-      m = { ...m, transcript: [], currentTurn: 0, activeTransaction: null, nextSpeakerParticipantId: null };
+      m = {
+        ...m,
+        transcript: [],
+        currentTurn: 0,
+        activeTransaction: null,
+        nextSpeakerParticipantId: null,
+        session: normalizeSession({ templateId: m.session?.templateId, status: 'IDLE' }),
+        loopGuard: createLoopGuardState(m.loopGuard),
+      };
       m = withActivity(m, 'Transcript cleared.');
       return { ok: true, meeting: await saveMeeting(m) };
     }
@@ -623,6 +1005,7 @@ async function handleCommand(message, sender) {
           m = withActivity(m, 'Response candidate detected.', { stage: 'RECEIVING', participantId: tx.participantId, transactionId: tx.transactionId });
           m = await saveMeeting(m);
         }
+        scheduleActiveTurnCheck();
       }
       return { ok: true, meeting: m };
     }
@@ -668,6 +1051,7 @@ chrome.alarms.onAlarm.addListener((alarm) => {
 
 chrome.tabs.onRemoved.addListener((tabId) => {
   enqueue(async () => {
+    await backgroundTabController.release(tabId).catch(() => {});
     let m = await getMeeting();
     const p = participantForTab(m, tabId);
     if (!p) return;

@@ -2,13 +2,22 @@ const $ = (id) => document.getElementById(id);
 let meeting = null;
 let supportedTabs = [];
 let titleSaveTimer = null;
+const SESSION_OPTIONS = [
+  ['freeform', 'Freeform'],
+  ['channel-9-axis', '9-axis Channel Analysis'],
+  ['debate', 'Debate'],
+  ['planning', 'Planning'],
+];
 
 const els = {
   meetingTitle: $('meetingTitle'), meetingStatus: $('meetingStatus'), participantCount: $('participantCount'), participants: $('participants'),
   addParticipant: $('addParticipant'), refreshTabs: $('refreshTabs'), transcript: $('transcript'), turnCounter: $('turnCounter'), composer: $('composer'),
+  interactionMode: $('interactionMode'), interactiveMode: $('interactiveMode'), autonomousMode: $('autonomousMode'), joinConversation: $('joinConversation'), modeHint: $('modeHint'),
   sendUserMessage: $('sendUserMessage'), startMeeting: $('startMeeting'), pauseMeeting: $('pauseMeeting'), endMeeting: $('endMeeting'), uiNotice: $('uiNotice'),
   attentionStrip: $('attentionStrip'), attentionMessage: $('attentionMessage'), retryTransaction: $('retryTransaction'), skipParticipant: $('skipParticipant'), reconnectParticipant: $('reconnectParticipant'),
   maxTurns: $('maxTurns'), delaySeconds: $('delaySeconds'), retryLimit: $('retryLimit'), responseTimeout: $('responseTimeout'), smartRouting: $('smartRouting'), captureScreenshots: $('captureScreenshots'),
+  sessionTemplate: $('sessionTemplate'), sessionPhaseHint: $('sessionPhaseHint'), loopGuardEnabled: $('loopGuardEnabled'), loopGuardInteractive: $('loopGuardInteractive'),
+  loopGuardMaxHops: $('loopGuardMaxHops'), loopGuardMaxSameSpeaker: $('loopGuardMaxSameSpeaker'), loopGuardMaxSameRoute: $('loopGuardMaxSameRoute'),
   clearTranscript: $('clearTranscript'), newMeeting: $('newMeeting'), activityCount: $('activityCount'), activityLog: $('activityLog'),
 };
 
@@ -35,6 +44,15 @@ function providerLabel(p) {
 
 function activeParticipantId() {
   return meeting?.activeTransaction?.participantId || meeting?.nextSpeakerParticipantId || null;
+}
+
+async function saveParticipantCoordination(participantId, role, rolePrompt) {
+  try {
+    await call('UPDATE_PARTICIPANT_COORDINATION', { participantId, role, rolePrompt });
+    render();
+  } catch (e) {
+    notice(e.message, true);
+  }
 }
 
 function renderParticipants() {
@@ -74,7 +92,26 @@ function renderParticipants() {
       catch (e) { notice(e.message, true); }
       finally { select.disabled = false; }
     });
-    card.append(top, select);
+    const role = document.createElement('input');
+    role.className = 'participant-role';
+    role.type = 'text';
+    role.maxLength = 80;
+    role.value = p.role || '';
+    role.placeholder = 'Role (e.g. Critic)';
+    role.setAttribute('aria-label', `${p.label || 'AI'} role`);
+    const rolePrompt = document.createElement('input');
+    rolePrompt.className = 'participant-role-prompt';
+    rolePrompt.type = 'text';
+    rolePrompt.maxLength = 80;
+    rolePrompt.value = p.rolePrompt || '';
+    rolePrompt.placeholder = 'Role guidance (optional)';
+    rolePrompt.setAttribute('aria-label', `${p.label || 'AI'} role guidance`);
+    const coordinationEditable = meeting.status === 'READY' || (meeting.status === 'PAUSED' && !meeting.activeTransaction);
+    role.disabled = !coordinationEditable;
+    rolePrompt.disabled = !coordinationEditable;
+    role.addEventListener('change', () => saveParticipantCoordination(p.id, role.value, rolePrompt.value));
+    rolePrompt.addEventListener('change', () => saveParticipantCoordination(p.id, role.value, rolePrompt.value));
+    card.append(top, select, role, rolePrompt);
     els.participants.append(card);
   }
   els.participantCount.textContent = `${meeting.participants.length} / 6`;
@@ -116,25 +153,67 @@ function renderActivity() {
 
 function renderSettings() {
   const s = meeting.settings || {};
+  const session = meeting.session || {};
+  const coordinationEditable = meeting.status === 'READY' || (meeting.status === 'PAUSED' && !meeting.activeTransaction);
   els.maxTurns.value = s.maxTurns ?? 20;
   els.delaySeconds.value = ((s.minDelayMs ?? 4000) / 1000).toString();
   els.retryLimit.value = s.retryLimit ?? 3;
   els.responseTimeout.value = Math.round((s.responseTimeoutMs ?? 120000) / 1000);
   els.smartRouting.checked = s.smartRouting !== false;
   els.captureScreenshots.checked = Boolean(s.captureScreenshots);
+  els.sessionTemplate.replaceChildren();
+  for (const [value, label] of SESSION_OPTIONS) {
+    const option = document.createElement('option');
+    option.value = value;
+    option.textContent = label;
+    option.selected = value === (session.templateId || 'freeform');
+    els.sessionTemplate.append(option);
+  }
+  els.sessionPhaseHint.textContent = session.status === 'COMPLETE'
+    ? 'Session complete'
+    : `${session.status || 'IDLE'} · phase ${(Number(session.phaseIndex) || 0) + 1}`;
+  els.loopGuardEnabled.checked = s.loopGuardEnabled !== false;
+  els.loopGuardInteractive.checked = s.loopGuardInteractive === true;
+  els.loopGuardMaxHops.value = s.loopGuardMaxHops ?? 20;
+  els.loopGuardMaxSameSpeaker.value = s.loopGuardMaxSameSpeaker ?? 3;
+  els.loopGuardMaxSameRoute.value = s.loopGuardMaxSameRoute ?? 6;
+  for (const el of [els.sessionTemplate, els.loopGuardEnabled, els.loopGuardInteractive, els.loopGuardMaxHops, els.loopGuardMaxSameSpeaker, els.loopGuardMaxSameRoute]) {
+    el.disabled = !coordinationEditable;
+  }
 }
 
 function renderAttention() {
   const needs = meeting.status === 'NEEDS_ATTENTION';
-  els.attentionStrip.hidden = !needs;
-  els.attentionMessage.textContent = meeting.activeTransaction?.error || 'The active turn needs recovery.';
+  const guardPause = meeting.status === 'PAUSED' && Boolean(meeting.loopGuard?.lastReason);
+  els.attentionStrip.hidden = !(needs || guardPause);
+  els.attentionMessage.textContent = guardPause
+    ? meeting.loopGuard.lastReason
+    : (meeting.activeTransaction?.error || 'The active turn needs recovery.');
+  els.retryTransaction.disabled = guardPause;
+  els.skipParticipant.disabled = guardPause;
+  els.reconnectParticipant.disabled = guardPause;
 }
 
 function renderControls() {
   const status = meeting.status;
+  const autonomous = meeting.interactionMode === 'autonomous';
+  const canChangeMode = ['READY', 'PAUSED'].includes(status);
   els.meetingStatus.textContent = status.replaceAll('_',' '); els.meetingStatus.dataset.status = status;
   els.meetingTitle.value = meeting.title || 'New AI Meeting';
   els.turnCounter.textContent = `${meeting.currentTurn} ${meeting.currentTurn === 1 ? 'turn' : 'turns'}`;
+  els.interactionMode.dataset.mode = autonomous ? 'autonomous' : 'interactive';
+  els.interactiveMode.setAttribute('aria-pressed', String(!autonomous));
+  els.autonomousMode.setAttribute('aria-pressed', String(autonomous));
+  els.interactiveMode.disabled = !canChangeMode;
+  els.autonomousMode.disabled = !canChangeMode;
+  els.modeHint.textContent = autonomous
+    ? (status === 'LIVE' ? 'Full Auto is observing. Pause to join the conversation.' : 'Full Auto: AI participants continue without user context.')
+    : 'Interactive: your messages are added to the room.';
+  els.composer.closest('.composer-section').dataset.observer = String(autonomous && status === 'LIVE');
+  els.composer.disabled = autonomous && status === 'LIVE';
+  els.sendUserMessage.disabled = autonomous && status === 'LIVE';
+  els.composer.placeholder = autonomous && status === 'LIVE' ? 'Full Auto is observing…' : 'Say something to the room…';
+  els.joinConversation.hidden = !(autonomous && status === 'PAUSED' && !meeting.activeTransaction);
   els.startMeeting.disabled = status === 'LIVE';
   els.startMeeting.textContent = status === 'PAUSED' ? 'Resume Meeting' : (status === 'FINISHED' ? 'Restart Meeting' : 'Start Meeting');
   els.pauseMeeting.disabled = !['LIVE','PAUSED'].includes(status);
@@ -162,11 +241,27 @@ async function load() {
 els.refreshTabs.addEventListener('click', async () => { await refreshTabs(); renderParticipants(); });
 els.addParticipant.addEventListener('click', async () => { try { await call('ADD_PARTICIPANT'); render(); } catch (e) { notice(e.message, true); } });
 
+async function chooseInteractionMode(mode) {
+  try { await call('SET_INTERACTION_MODE', { mode }); render(); }
+  catch (e) { notice(e.message, true); }
+}
+els.interactiveMode.addEventListener('click', () => chooseInteractionMode('interactive'));
+els.autonomousMode.addEventListener('click', () => chooseInteractionMode('autonomous'));
+els.joinConversation.addEventListener('click', () => chooseInteractionMode('interactive'));
+
 els.startMeeting.addEventListener('click', async () => {
   try {
     if (meeting.status === 'PAUSED') { await call('RESUME_MEETING'); }
-    else if (meeting.status === 'FINISHED') { await call('NEW_MEETING', { options: { title: meeting.title } }); await refreshTabs(false); notice('New meeting created. Reconnect participant tabs.'); }
-    else { const seedText = els.composer.value.trim(); await call('START_MEETING', { seedText }); if (seedText) els.composer.value = ''; }
+    else if (meeting.status === 'FINISHED') {
+      await call('NEW_MEETING', { options: { title: meeting.title, interactionMode: meeting.interactionMode, session: { templateId: meeting.session?.templateId || 'freeform' } } });
+      await refreshTabs(false);
+      notice('New meeting created. Reconnect participant tabs.');
+    }
+    else {
+      const seedText = els.composer.value.trim();
+      await call('START_MEETING', { seedText, mode: meeting.interactionMode || 'interactive' });
+      if (seedText) els.composer.value = '';
+    }
     render();
   } catch (e) { notice(e.message, true); }
 });
@@ -179,6 +274,10 @@ els.endMeeting.addEventListener('click', async () => { try { await call('END_MEE
 
 async function sendComposer() {
   const text = els.composer.value.trim(); if (!text) return;
+  if (meeting.interactionMode === 'autonomous' && meeting.status === 'LIVE') {
+    notice('Full Auto is observing. Pause to join the conversation.', true);
+    return;
+  }
   try {
     if (meeting.status === 'READY' && !meeting.transcript.length) {
       await call('USER_MESSAGE', { text });
@@ -205,11 +304,27 @@ async function updateSettings() {
 }
 for (const el of [els.maxTurns,els.delaySeconds,els.retryLimit,els.responseTimeout,els.smartRouting]) el.addEventListener('change', updateSettings);
 els.captureScreenshots.addEventListener('change', async () => {
-  if (els.captureScreenshots.checked) {
-    const granted = await chrome.permissions.request({ permissions: ['debugger'] }).catch(() => false);
-    if (!granted) notice('Exact screenshot permission was not granted. Active-tab screenshots may still work without stealing focus.', true);
-  }
   updateSettings();
+});
+
+async function updateLoopGuard() {
+  try {
+    await call('UPDATE_LOOP_GUARD', { settings: {
+      loopGuardEnabled: els.loopGuardEnabled.checked,
+      loopGuardInteractive: els.loopGuardInteractive.checked,
+      loopGuardMaxHops: Number(els.loopGuardMaxHops.value),
+      loopGuardMaxSameSpeaker: Number(els.loopGuardMaxSameSpeaker.value),
+      loopGuardMaxSameRoute: Number(els.loopGuardMaxSameRoute.value),
+    } });
+    render();
+  } catch (e) { notice(e.message, true); }
+}
+for (const el of [els.loopGuardEnabled, els.loopGuardInteractive, els.loopGuardMaxHops, els.loopGuardMaxSameSpeaker, els.loopGuardMaxSameRoute]) {
+  el.addEventListener('change', updateLoopGuard);
+}
+els.sessionTemplate.addEventListener('change', async () => {
+  try { await call('UPDATE_SESSION_TEMPLATE', { templateId: els.sessionTemplate.value }); render(); }
+  catch (e) { notice(e.message, true); }
 });
 
 els.clearTranscript.addEventListener('click', async () => { try { await call('CLEAR_TRANSCRIPT'); render(); } catch (e) { notice(e.message, true); } });
@@ -218,9 +333,11 @@ els.newMeeting.addEventListener('click', async () => { try { await call('NEW_MEE
 els.meetingTitle.addEventListener('input', () => {
   clearTimeout(titleSaveTimer);
   titleSaveTimer = setTimeout(async () => {
+    // Title persists through NEW_MEETING; a dedicated command is intentionally lightweight via settings-like mutation.
     try {
       const current = await call('GET_MEETING_STATE');
       if (current.meeting.title === els.meetingTitle.value.trim()) return;
+      // Reuse a background command added for title updates.
       await call('UPDATE_MEETING_TITLE', { title: els.meetingTitle.value.trim() || 'New AI Meeting' });
     } catch (e) { notice(e.message, true); }
   }, 450);
@@ -231,4 +348,13 @@ chrome.runtime.onMessage.addListener((message) => {
 });
 
 load();
+
+// The Side Panel remains alive while the user browses other tabs. Use it as a
+// heartbeat so the MV3 service worker re-checks the active provider turn even
+// when Gemini/Claude/Copilot background pages throttle or freeze their timers.
+setInterval(() => {
+  if (!meeting?.activeTransaction || !['LIVE','PAUSED','NEEDS_ATTENTION'].includes(meeting.status)) return;
+  chrome.runtime.sendMessage({ type: 'CHECK_ACTIVE_TURN' }).catch(() => {});
+}, 1800);
+
 setInterval(() => refreshTabs(false).then(() => { if (document.activeElement?.tagName !== 'SELECT') renderParticipants(); }).catch(() => {}), 8000);

@@ -49,6 +49,10 @@ button { cursor: pointer; }
 .participant-card[data-active="true"] .participant-state { color: #cfd5ff; }
 .participant-select { width: 100%; min-width: 0; border: 1px solid var(--border); border-radius: 9px; padding: 7px 8px; background: #0b0e13; font-size: 11px; color: #cbd1da; outline: none; }
 .participant-select:focus { border-color: var(--accent); }
+.participant-role, .participant-role-prompt, .control-select { width: 100%; min-width: 0; border: 1px solid var(--border); border-radius: 9px; padding: 7px 8px; background: #0b0e13; font-size: 10px; color: #cbd1da; outline: none; }
+.participant-role { margin-top: 7px; }
+.participant-role-prompt { margin-top: 6px; }
+.participant-role:focus, .participant-role-prompt:focus, .control-select:focus { border-color: var(--accent); }
 .remove-participant { border: 0; background: transparent; color: var(--soft); padding: 0 2px; font-size: 13px; }
 .remove-participant:hover { color: var(--bad); }
 .add-participant { margin-top: 8px; width: 100%; padding: 9px; border: 1px dashed var(--border-strong); border-radius: 12px; background: transparent; color: var(--muted); font-size: 12px; }
@@ -74,11 +78,17 @@ button { cursor: pointer; }
 .message.user .message-meta { justify-content: flex-end; }
 .message.user .message-bubble { background: color-mix(in srgb,var(--accent) 10%,var(--panel)); border-color: color-mix(in srgb,var(--accent) 23%,var(--border)); }
 .composer-section { position: sticky; bottom: 0; z-index: 8; padding-top: 8px; background: linear-gradient(180deg,transparent 0,var(--bg) 14px); }
+.mode-selector { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 6px; margin-bottom: 5px; }
+.mode-selector button { border: 1px solid var(--border); border-radius: 9px; padding: 7px 8px; background: var(--panel); color: var(--muted); font-size: 10px; font-weight: 750; }
+.mode-selector button[aria-pressed="true"] { border-color: color-mix(in srgb,var(--accent) 52%,transparent); background: color-mix(in srgb,var(--accent) 12%,var(--panel)); color: #d9ddff; }
+.mode-hint { min-height: 15px; margin: 0 2px 5px; color: var(--soft); font-size: 10px; line-height: 1.4; }
+.composer-section[data-observer="true"] .composer-wrap { border-color: color-mix(in srgb,var(--accent) 30%,var(--border-strong)); }
+.composer-section[data-observer="true"] #composer { color: var(--soft); }
 .composer-wrap { display: grid; grid-template-columns: 1fr auto; align-items: end; gap: 7px; padding: 8px; border: 1px solid var(--border-strong); border-radius: 14px; background: var(--panel); }
 #composer { width: 100%; resize: vertical; min-height: 58px; max-height: 140px; padding: 3px; border: 0; outline: 0; background: transparent; color: var(--text); font-size: 12px; line-height: 1.45; }
 #composer::placeholder { color: #59616f; }
 .send-button { width: 31px; height: 31px; border: 0; border-radius: 9px; background: var(--text); color: #0b0d10; font-size: 17px; font-weight: 800; }
-.meeting-actions { display: grid; grid-template-columns: 1fr auto auto; gap: 7px; margin-top: 8px; }
+.meeting-actions { display: grid; grid-template-columns: minmax(0,1fr) auto auto auto; gap: 7px; margin-top: 8px; }
 .meeting-actions button { border-radius: 10px; min-height: 35px; padding: 0 11px; font-size: 11px; font-weight: 700; }
 .primary-button { border: 1px solid #eef1f5; background: #eef1f5; color: #0a0c10; }
 .secondary-button { border: 1px solid var(--border-strong); background: var(--panel); color: #c8ced7; }
@@ -93,6 +103,7 @@ button:disabled { opacity: .38; cursor: default; }
 .controls-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 10px; }
 .controls-grid > label { display: grid; gap: 5px; font-size: 10px; color: var(--muted); }
 .controls-grid input[type="number"] { width: 100%; border: 1px solid var(--border); border-radius: 8px; padding: 7px; background: var(--panel); outline: none; }
+.control-select { padding: 7px; }
 .controls-grid input:focus { border-color: var(--accent); }
 .controls-grid small { color: var(--soft); font-size: 9px; }
 .inline-field { display: flex; align-items: center; gap: 5px; }

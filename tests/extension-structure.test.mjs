@@ -31,17 +31,18 @@ test('content adapters expose explicit generation indicators and outgoing user s
 
 test('extension updates preserve an existing saved v3 meeting', () => {
   const source = read('background.js');
-  assert.match(source, /local\[SAVED_MEETING_KEY\]\s*\|\|\s*createMeeting\(\)/);
+  assert.match(source, /local\[SAVED_MEETING_KEY\]\s*\|\|\s*local\[LEGACY_SAVED_MEETING_KEY\]/);
+  assert.match(source, /sanitizeMeetingTranscript\(stored\s*\|\|\s*createMeeting\(\)\)/);
   const installed = source.match(/chrome\.runtime\.onInstalled\.addListener\([\s\S]*?\n\}\);/)?.[0] || '';
   assert.ok(installed);
   assert.doesNotMatch(installed, /chrome\.storage\.local\.set\(\{\s*\[SAVED_MEETING_KEY\]:\s*createMeeting/);
 });
 
-test('debugger permission is optional and requested only from screenshot UI', () => {
+test('debugger permission is required and never requested at runtime', () => {
   const manifest = JSON.parse(read('manifest.json'));
-  assert.ok(manifest.optional_permissions?.includes('debugger'));
-  assert.ok(!manifest.permissions?.includes('debugger'));
-  assert.match(read('sidepanel.js'), /permissions\.request\(\{\s*permissions:\s*\['debugger'\]/);
+  assert.ok(manifest.permissions?.includes('debugger'));
+  assert.ok(!manifest.optional_permissions?.includes('debugger'));
+  assert.doesNotMatch(read('sidepanel.js'), /permissions\.request\(\{\s*permissions:\s*\['debugger'\]/);
 });
 
 test('exact screenshot path crops the assistant response without tab activation', () => {
@@ -80,8 +81,8 @@ test('delivery retries verify late delivery before resending', () => {
   const source = read('background.js');
   const fn = source.match(/async function deliveryWithRetries[\s\S]*?\n\}/)?.[0] || '';
   assert.match(fn, /verifyDelivery/);
-  assert.match(fn, /SUBMIT_MESSAGE/);
-  assert.ok(fn.indexOf('verifyDelivery') < fn.lastIndexOf('SUBMIT_MESSAGE'));
+  assert.doesNotMatch(fn, /SUBMIT_MESSAGE/);
+  assert.match(fn, /re-verifying without resending/);
 });
 
 test('closing one participant tab preserves the meeting and marks that participant disconnected', () => {

@@ -10,15 +10,19 @@ The Manifest V3 service worker is the orchestration authority. It serializes mut
 
 ### `meeting-engine.mjs`
 
-Owns meeting-level data: participants, transcript, activity, statuses, durable state, and the 2–6 participant limit.
+Owns meeting-level data: participants, transcript, activity, statuses, durable state, and the 2-6 participant limit.
+
+### `context-engine.mjs` and `coordination-engine.mjs`
+
+Build provider-safe inline, compact, or context-file prompts. Coordination state adds participant roles, session phases, and Loop Guard bounds without exposing the user as a participant in Full Auto mode.
 
 ### `transaction-engine.mjs`
 
 Owns the turn lifecycle. A turn is not complete because a DOM click succeeded. It moves through explicit stages and can enter `NEEDS_ATTENTION` when bounded recovery fails.
 
-### `content.js`
+### `content.js` and `response-capture-policy.js`
 
-Runs inside supported AI web pages. It locates provider input/output elements, prepares and submits messages, verifies delivery evidence, observes assistant responses, and reports transaction-scoped events to the background service worker.
+Run inside supported AI web pages. They locate provider input/output elements, prepare and submit messages, verify delivery evidence, observe assistant responses, and apply provider-specific pause-safe response confirmation before reporting transaction-scoped events to the background service worker.
 
 ### `provider-adapters.mjs`
 

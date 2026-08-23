@@ -1,5 +1,18 @@
 # Changelog
 
+## 4.0.1
+
+### Fixed
+
+- ChatGPT long responses are captured from the complete Markdown body instead of being finalized after a short streaming pause.
+- ChatGPT streaming markers are recognized, with a pause-safe fallback confirmation window when the provider does not expose one.
+
+### Added
+
+- Interactive and Full Auto meeting modes.
+- Participant roles, session templates, coordination phases, and Loop Guard.
+- Background-tab response recovery with adaptive inline, compact, and context-file delivery.
+
 ## 3.0.3
 
 - normalize text line endings in the release packer so Windows and Linux produce the same archive bytes

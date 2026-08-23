@@ -17,6 +17,7 @@
   const provider = detectProvider();
   if (!provider) return;
 
+  // Keep this serializable registry in sync with provider-adapters.mjs.
   const ADAPTERS = {
     chatgpt: {
       assistantSelectors: ['[data-message-author-role="assistant"]', '[data-testid^="conversation-turn-"] [data-message-author-role="assistant"]', '.agent-turn [data-message-author-role="assistant"]', '.agent-turn .markdown'],
@@ -24,22 +25,30 @@
       inputSelectors: ['#prompt-textarea', 'textarea', '[contenteditable="true"][role="textbox"]'],
       sendButtonSelectors: ['button[data-testid="send-button"]', 'button[aria-label*="send" i]', 'button[aria-label*="메시지 보내기" i]'],
       generatingSelectors: ['button[data-testid="stop-button"]', 'button[aria-label*="stop streaming" i]', 'button[aria-label*="stop generating" i]', 'button[aria-label*="중지" i]'],
+      streamingSelectors: ['[data-message-author-role="assistant"][data-is-streaming="true"]', '[data-testid^="conversation-turn-"] [data-is-streaming="true"]', '[data-is-streaming="true"]'],
+      fileInputSelectors: ['input[type="file"]'],
+      attachButtonSelectors: ['button[aria-label*="attach" i]', 'button[aria-label*="upload" i]', 'button[aria-label*="add file" i]', 'button[aria-label*="첨부" i]', 'button[aria-label*="업로드" i]', 'button[title*="attach" i]', 'button[data-testid*="attach" i]'],
       responseQuietMs: 1800,
+      initialResponseQuietMs: 6000,
     },
     claude: {
-      assistantSelectors: ['[data-testid="assistant-message"]', '[data-testid*="assistant" i] .prose', '[data-testid*="assistant" i]', '[data-is-streaming] .font-claude-message', '[data-is-streaming] .prose', '[data-test-render-count] .font-claude-message'],
+      assistantSelectors: ['.font-claude-response', '[data-testid="assistant-message"]', '.font-claude-message', '.assistant-message', '[data-testid*="assistant" i] .prose', '[data-testid*="assistant" i]', '[data-is-streaming] .font-claude-response', '[data-is-streaming] .font-claude-message', '[data-is-streaming] .prose', '[data-test-render-count] .font-claude-response', '[data-test-render-count] .font-claude-message'],
       userSelectors: ['[data-testid="user-message"]', '[data-testid*="user" i] .prose', '[data-testid*="user" i]'],
       inputSelectors: ['div[contenteditable="true"][role="textbox"]', 'div[contenteditable="true"]', 'textarea'],
       sendButtonSelectors: ['button[aria-label*="send" i]', 'button[aria-label*="보내" i]', 'button[data-testid*="send" i]', 'button[title*="send" i]'],
       generatingSelectors: ['[data-is-streaming="true"]', 'button[aria-label*="stop" i]', 'button[aria-label*="중지" i]', 'button[data-testid*="stop" i]'],
+      fileInputSelectors: ['input[type="file"]'],
+      attachButtonSelectors: ['button[aria-label*="attach" i]', 'button[aria-label*="upload" i]', 'button[aria-label*="add file" i]', 'button[aria-label*="첨부" i]', 'button[aria-label*="업로드" i]', 'button[title*="attach" i]', 'button[data-testid*="attach" i]'],
       responseQuietMs: 2000,
     },
     gemini: {
-      assistantSelectors: ['model-response', '[data-test-id="model-response"]', '[data-testid="model-response"]', 'model-response message-content', '.model-response-text'],
-      userSelectors: ['user-query', '[data-test-id="user-query"]', '[data-testid="user-query"]', '.user-query'],
-      inputSelectors: ['rich-textarea [contenteditable="true"]', '[contenteditable="true"][role="textbox"]', 'textarea'],
-      sendButtonSelectors: ['button[aria-label*="send" i]', 'button[aria-label*="보내" i]', 'button[title*="send" i]', 'button[data-testid*="send" i]', 'button[data-test-id*="send" i]'],
-      generatingSelectors: ['button[aria-label*="stop" i]', 'button[aria-label*="중지" i]', '[data-test-id*="stop" i]', '[data-testid*="stop" i]'],
+      assistantSelectors: ['model-response', 'response-container', '[data-test-id="model-response"]', '[data-testid="model-response"]', 'message-content', '.response-content', '.model-response-text', 'structured-content-container'],
+      userSelectors: ['user-query', '.query-text', 'user-query-content', '[data-message-author="user"]', '[data-test-id="user-query"]', '[data-testid="user-query"]', '.user-query'],
+      inputSelectors: ['div.ql-editor', 'rich-textarea [contenteditable="true"]', '[aria-label="Enter a prompt here"]', '[contenteditable="true"][role="textbox"]', 'textarea'],
+      sendButtonSelectors: ['button[aria-label="Send message"]', 'button[aria-label*="send" i]', '.send-button', 'button.send-button', 'button[aria-label*="보내" i]', 'button[title*="send" i]', 'button[data-testid*="send" i]', 'button[data-test-id*="send" i]'],
+      generatingSelectors: ['[aria-busy="true"]', 'button[aria-label*="stop" i]', 'button[aria-label*="중지" i]', '[data-test-id*="stop" i]', '[data-testid*="stop" i]'],
+      fileInputSelectors: ['input[type="file"]'],
+      attachButtonSelectors: ['button[aria-label*="attach" i]', 'button[aria-label*="upload" i]', 'button[aria-label*="add file" i]', 'button[aria-label*="add" i]', 'button[aria-label*="첨부" i]', 'button[aria-label*="업로드" i]', 'button[title*="upload" i]', 'button[data-test-id*="upload" i]'],
       responseQuietMs: 2000,
     },
     copilot: {
@@ -48,6 +57,8 @@
       inputSelectors: ['textarea', '[contenteditable="true"][role="textbox"]', 'div[contenteditable="true"]'],
       sendButtonSelectors: ['button[aria-label*="send" i]', 'button[aria-label*="보내" i]', 'button[title*="send" i]', 'button[data-testid*="send" i]'],
       generatingSelectors: ['button[aria-label*="stop" i]', 'button[aria-label*="중지" i]', 'button[data-testid*="stop" i]', '[data-content*="stop" i]'],
+      fileInputSelectors: ['input[type="file"]'],
+      attachButtonSelectors: ['button[aria-label*="attach" i]', 'button[aria-label*="upload" i]', 'button[aria-label*="add content" i]', 'button[aria-label*="add" i]', 'button[aria-label*="첨부" i]', 'button[aria-label*="업로드" i]', 'button[title*="attach" i]', 'button[data-testid*="attach" i]'],
       responseQuietMs: 2000,
     },
   };
@@ -60,6 +71,10 @@
   let attachment = null;
   let transaction = null;
   let pollTimer = null;
+  let responseCheckRunning = false;
+  let responseCheckPending = false;
+  const observedResponseRoots = new WeakSet();
+  let responseMutationObserver = null;
 
   function cleanText(raw = '') {
     const lines = String(raw).replace(/\r\n?/g, '\n').split('\n').map((line) => line.replace(/[\t ]+/g, ' ').trim());
@@ -80,6 +95,15 @@
     const rect = el.getBoundingClientRect();
     const style = getComputedStyle(el);
     return rect.width > 0 && rect.height > 0 && style.visibility !== 'hidden' && style.display !== 'none';
+  }
+
+  // Transcript nodes must remain readable while their provider tab is in the
+  // background. Layout boxes can be throttled or skipped for hidden tabs, so
+  // message discovery must not depend on getBoundingClientRect().
+  function isReadableMessage(el) {
+    if (!(el instanceof Element) || !el.isConnected || el.hidden) return false;
+    const style = getComputedStyle(el);
+    return style.visibility !== 'hidden' && style.display !== 'none';
   }
 
   function getRoots(force = false) {
@@ -105,7 +129,7 @@
   function queryDeep(selector, roots = getRoots()) {
     const found = [];
     for (const root of roots) {
-      try { found.push(...root.querySelectorAll(selector)); } catch { }
+      try { found.push(...root.querySelectorAll(selector)); } catch { /* inaccessible root */ }
     }
     return [...new Set(found)];
   }
@@ -117,19 +141,73 @@
     } catch { return 0; }
   }
 
+  function messageText(el, selectors) {
+    const assistant = selectors === adapter.assistantSelectors;
+    const user = selectors === adapter.userSelectors;
+
+    if (provider === 'chatgpt' && assistant) {
+      // ChatGPT's assistant turn contains controls beside the markdown body.
+      // Read every markdown body in the turn so action UI or a nested short
+      // node cannot replace the complete answer.
+      const preferred = el.matches?.('.markdown')
+        ? [el]
+        : [...(el.querySelectorAll?.('.markdown') || [])];
+      const preferredText = cleanText(preferred.map((node) => node.innerText || node.textContent || '').join('\n'));
+      if (preferredText) return preferredText;
+    }
+
+    // Gemini's 2026 UI has used several nested response shells. Prefer the
+    // rendered structured-content body so action bars / headings do not become
+    // part of the relayed answer, then fall back to the turn root itself.
+    if (provider === 'gemini' && assistant) {
+      const preferred = el.matches?.('structured-content-container > div.container, .response-content, .model-response-text, message-content')
+        ? el
+        : el.querySelector?.('structured-content-container > div.container, .response-content, .model-response-text');
+      const preferredText = cleanText(preferred?.innerText || preferred?.textContent || '');
+      if (preferredText) return preferredText;
+    }
+    if (provider === 'gemini' && user) {
+      const preferred = el.matches?.('.query-text, user-query-content')
+        ? el
+        : el.querySelector?.('.query-text, user-query-content');
+      const preferredText = cleanText(preferred?.innerText || preferred?.textContent || '');
+      if (preferredText) return preferredText;
+    }
+    if (provider === 'claude' && assistant) {
+      const preferred = el.matches?.('.font-claude-response') ? el : el.querySelector?.('.font-claude-response');
+      const preferredText = cleanText(preferred?.innerText || preferred?.textContent || '');
+      if (preferredText) return preferredText;
+    }
+    return cleanText(el.innerText || el.textContent || '');
+  }
+
+  function compareMessageOrder(a, b) {
+    if (a.el === b.el) return 0;
+    try {
+      const position = a.el.compareDocumentPosition(b.el);
+      if (position & Node.DOCUMENT_POSITION_FOLLOWING) return -1;
+      if (position & Node.DOCUMENT_POSITION_PRECEDING) return 1;
+    } catch { /* disconnected shadow roots fall back to query order */ }
+    return a.sequence - b.sequence;
+  }
+
   function collectMessages(selectors, roots = getRoots()) {
-    const nodes = [];
-    selectors.forEach((selector, selectorIndex) => {
+    // Each provider supplies selectors from most-semantic turn container to
+    // fallback text node. Mixing all selector families double-counts nested
+    // Gemini/Claude nodes and can make an already-complete response look stale.
+    for (const selector of selectors) {
+      const nodes = [];
+      let sequence = 0;
       for (const el of queryDeep(selector, roots)) {
-        if (!isVisible(el)) continue;
-        const text = cleanText(el.innerText || el.textContent || '');
+        if (!isReadableMessage(el)) continue;
+        const text = messageText(el, selectors);
         if (!text) continue;
-        nodes.push({ el, text, selectorIndex, rank: documentRank(el) });
+        nodes.push({ el, text, sequence: sequence++ });
       }
-    });
-    const deduped = [...new Map(nodes.map((item) => [item.el, item])).values()];
-    deduped.sort((a, b) => a.rank - b.rank || a.selectorIndex - b.selectorIndex);
-    return deduped;
+      nodes.sort(compareMessageOrder);
+      if (nodes.length) return nodes;
+    }
+    return [];
   }
 
   function latestMessage(selectors, roots = getRoots()) {
@@ -140,7 +218,9 @@
   function latestUser(roots = getRoots()) { return latestMessage(adapter.userSelectors, roots); }
 
   function isGenerating(roots = getRoots()) {
-    return adapter.generatingSelectors.some((selector) => queryDeep(selector, roots).some(isVisible));
+    const activeControl = adapter.generatingSelectors.some((selector) => queryDeep(selector, roots).some(isVisible));
+    const activeStream = (adapter.streamingSelectors || []).some((selector) => queryDeep(selector, roots).some(isReadableMessage));
+    return activeControl || activeStream;
   }
 
   function findInput() {
@@ -197,15 +277,215 @@
     return null;
   }
 
+
+  function elementDistance(a, b) {
+    try {
+      const ar = a.getBoundingClientRect();
+      const br = b.getBoundingClientRect();
+      const ax = ar.left + ar.width / 2;
+      const ay = ar.top + ar.height / 2;
+      const bx = br.left + br.width / 2;
+      const by = br.top + br.height / 2;
+      return Math.hypot(ax - bx, ay - by);
+    } catch { return Number.MAX_SAFE_INTEGER; }
+  }
+
+  function findFileInput() {
+    const roots = getRoots(true);
+    for (const selector of adapter.fileInputSelectors || ['input[type="file"]']) {
+      const candidates = queryDeep(selector, roots)
+        .filter((el) => el instanceof HTMLInputElement && el.type === 'file' && !el.disabled);
+      if (candidates.length) return candidates.at(-1);
+    }
+    return null;
+  }
+
+  function buttonText(el) {
+    return cleanText([
+      el?.getAttribute?.('aria-label') || '',
+      el?.getAttribute?.('title') || '',
+      el?.innerText || el?.textContent || '',
+    ].filter(Boolean).join(' '));
+  }
+
+  function findAttachButton(composer) {
+    const roots = getRoots(true);
+    const candidates = [];
+    for (const selector of adapter.attachButtonSelectors || []) {
+      for (const el of queryDeep(selector, roots)) {
+        if (isVisible(el) && !el.disabled && el.getAttribute('aria-disabled') !== 'true') candidates.push(el);
+      }
+    }
+    if (!candidates.length) {
+      const pattern = /(attach|upload|add\s+(content|file|files)|paperclip|첨부|업로드|파일\s*추가)/i;
+      for (const el of queryDeep('button,[role="button"]', roots)) {
+        if (isVisible(el) && !el.disabled && pattern.test(buttonText(el))) candidates.push(el);
+      }
+    }
+    return [...new Set(candidates)].sort((a, b) => elementDistance(a, composer) - elementDistance(b, composer))[0] || null;
+  }
+
+  function findUploadMenuAction() {
+    const pattern = /(upload|from (computer|device)|attach file|add file|파일|업로드|기기에서)/i;
+    const candidates = queryDeep('button,[role="button"],[role="menuitem"],li', getRoots(true))
+      .filter((el) => isVisible(el) && pattern.test(buttonText(el)));
+    return candidates[0] || null;
+  }
+
+  function nativeFileInputHas(fileName) {
+    if (!fileName) return false;
+    for (const input of queryDeep('input[type="file"]', getRoots(true))) {
+      try {
+        if ([...(input.files || [])].some((file) => file.name === fileName)) return true;
+      } catch { /* ignore inaccessible file list */ }
+    }
+    return false;
+  }
+
+  function contextFileVisible(fileName) {
+    if (!fileName) return false;
+    const roots = getRoots(true);
+    const likelyAttachmentSelectors = [
+      '[data-testid*="attachment" i]', '[data-test-id*="attachment" i]',
+      '[data-testid*="file" i]', '[data-test-id*="file" i]',
+      '[class*="attachment" i]', '[class*="file-chip" i]', '[class*="upload" i]',
+      '[aria-label*=".txt" i]',
+    ];
+    for (const selector of likelyAttachmentSelectors) {
+      for (const el of queryDeep(selector, roots)) {
+        try {
+          const text = `${buttonText(el)} ${el.textContent || ''}`;
+          if (text.includes(fileName)) return true;
+        } catch { /* ignore */ }
+      }
+    }
+    const textCandidates = queryDeep('span,button,[role="button"],[role="listitem"],[title*=".txt" i]', roots);
+    for (const el of textCandidates) {
+      try {
+        if (el.closest?.('textarea,[contenteditable="true"]')) continue;
+        const text = `${buttonText(el)} ${el.textContent || ''}`;
+        if (text.includes(fileName)) return true;
+      } catch { /* ignore */ }
+    }
+    return false;
+  }
+
+  async function revealFileInput(composer) {
+    let input = findFileInput();
+    if (input) return input;
+    const attachButton = findAttachButton(composer);
+    if (attachButton) {
+      attachButton.click();
+      await new Promise((resolve) => setTimeout(resolve, 350));
+      input = findFileInput();
+      if (input) return input;
+      const uploadAction = findUploadMenuAction();
+      if (uploadAction && uploadAction !== attachButton) {
+        uploadAction.click();
+        await new Promise((resolve) => setTimeout(resolve, 350));
+      }
+    }
+    for (let i = 0; i < 14; i += 1) {
+      input = findFileInput();
+      if (input) return input;
+      await new Promise((resolve) => setTimeout(resolve, 150));
+    }
+    return null;
+  }
+
+  async function attachContextFile(message) {
+    if (!transactionMatches(message)) throw new Error('Transaction mismatch.');
+    const fileName = String(message.fileName || '').trim();
+    const fileText = String(message.fileText || '');
+    if (!fileName || !/\.txt$/i.test(fileName)) throw new Error('Context attachment must be a .txt file.');
+    if (!fileText) throw new Error('Context attachment is empty.');
+    if (fileText.length > 512000) throw new Error('Context attachment is too large.');
+    if (contextFileVisible(fileName) || nativeFileInputHas(fileName)) {
+      transaction.contextFileName = fileName;
+      transaction.contextFileAttached = true;
+      return { attached: true, confirmed: true, reused: true, fileName };
+    }
+
+    const composer = findInput();
+    if (!composer) return { attached: false, reason: `${provider} input editor not found.`, fileName };
+    if (typeof File !== 'function' || typeof DataTransfer !== 'function') {
+      return { attached: false, reason: 'Browser file attachment APIs are unavailable.', fileName };
+    }
+    const file = new File([fileText], fileName, { type: message.mimeType || 'text/plain', lastModified: Date.now() });
+    const transfer = new DataTransfer();
+    transfer.items.add(file);
+
+    const input = await revealFileInput(composer);
+    if (!input) {
+      // Some provider composers support drag-and-drop without exposing a stable
+      // file input. Try the same browser-native File through a synthetic drop
+      // before falling back to bounded inline context.
+      if (typeof DragEvent === 'function') {
+        for (const type of ['dragenter', 'dragover', 'drop']) {
+          composer.dispatchEvent(new DragEvent(type, { bubbles: true, cancelable: true, composed: true, dataTransfer: transfer }));
+        }
+        for (let i = 0; i < 12; i += 1) {
+          if (contextFileVisible(fileName)) {
+            transaction.contextFileName = fileName;
+            transaction.contextFileAttached = true;
+            return { attached: true, confirmed: true, dropped: true, fileName };
+          }
+          await new Promise((resolve) => setTimeout(resolve, 250));
+        }
+      }
+      return { attached: false, reason: `${provider} file upload control was not found.`, fileName };
+    }
+    try {
+      input.files = transfer.files;
+    } catch (error) {
+      return { attached: false, reason: `Could not set the provider file input: ${error.message || String(error)}`, fileName };
+    }
+    input.dispatchEvent(new Event('input', { bubbles: true, composed: true }));
+    input.dispatchEvent(new Event('change', { bubbles: true, composed: true }));
+
+    let assigned = false;
+    try { assigned = [...(input.files || [])].some((item) => item.name === fileName); } catch { assigned = false; }
+    let consumedByProvider = false;
+    for (let i = 0; i < 32; i += 1) {
+      if (contextFileVisible(fileName)) {
+        transaction.contextFileName = fileName;
+        transaction.contextFileAttached = true;
+        return { attached: true, confirmed: true, fileName };
+      }
+      if (assigned && !nativeFileInputHas(fileName)) consumedByProvider = true;
+      if (consumedByProvider && i >= 4) {
+        transaction.contextFileName = fileName;
+        transaction.contextFileAttached = true;
+        return { attached: true, confirmed: false, consumed: true, fileName };
+      }
+      await new Promise((resolve) => setTimeout(resolve, 250));
+    }
+
+    // Some provider uploaders keep the native file input populated while upload
+    // processing continues. The assignment + change event is a safe last signal;
+    // background still sends only the short prompt, so provider composer limits
+    // cannot be exceeded even if the attachment UI is slow.
+    if (assigned) {
+      transaction.contextFileName = fileName;
+      transaction.contextFileAttached = true;
+      return { attached: true, confirmed: false, dispatched: true, fileName };
+    }
+    return { attached: false, reason: `${provider} did not accept the context attachment.`, fileName };
+  }
+
   async function snapshot() {
     const roots = getRoots(true);
-    const assistant = latestAssistant(roots);
-    const user = latestUser(roots);
+    const assistantMessages = collectMessages(adapter.assistantSelectors, roots);
+    const userMessages = collectMessages(adapter.userSelectors, roots);
+    const assistant = assistantMessages.at(-1) || { el: null, text: '' };
+    const user = userMessages.at(-1) || { el: null, text: '' };
     return {
       assistantText: assistant.text,
       assistantSignature: await signatureText(assistant.text),
+      assistantCount: assistantMessages.length,
       userText: user.text,
       userSignature: await signatureText(user.text),
+      userCount: userMessages.length,
       generating: isGenerating(roots),
       url: location.href,
     };
@@ -223,24 +503,38 @@
   async function prepareDelivery(message) {
     if (!identityMatches(message)) throw new Error('Participant attachment mismatch.');
     const base = await snapshot();
+    if (transactionMatches(message)) {
+      // PREPARE may be called again after a verification hiccup or watchdog pass.
+      // Never move the baseline forward for the same transaction: doing so can
+      // erase evidence that the first send already created a new turn.
+      transaction.promptText = cleanText(message.text || transaction.promptText);
+      transaction.promptSignature = message.promptSignature || transaction.promptSignature || await signatureText(transaction.promptText);
+      return { ...base, reusedTransaction: true };
+    }
+    const useRestoredBaseline = Boolean(message.baselineCaptured);
     transaction = {
       meetingId: message.meetingId,
       transactionId: message.transactionId,
       participantId: message.participantId,
       promptText: cleanText(message.text || ''),
       promptSignature: message.promptSignature || await signatureText(message.text || ''),
-      baselineAssistantSignature: base.assistantSignature,
-      baselineUserSignature: base.userSignature,
-      baselineUrl: location.href,
-      baselineGenerating: Boolean(base.generating),
+      baselineAssistantSignature: useRestoredBaseline ? (message.baselineAssistantSignature ?? null) : base.assistantSignature,
+      baselineAssistantCount: useRestoredBaseline ? (Number(message.baselineAssistantCount) || 0) : (Number(base.assistantCount) || 0),
+      baselineUserSignature: useRestoredBaseline ? (message.baselineUserSignature ?? null) : base.userSignature,
+      baselineUserCount: useRestoredBaseline ? (Number(message.baselineUserCount) || 0) : (Number(base.userCount) || 0),
+      baselineUrl: message.baselineUrl || location.href,
+      baselineGenerating: useRestoredBaseline ? Boolean(message.baselineGenerating) : Boolean(base.generating),
       armed: false,
-      generationSeen: base.generating,
+      generationSeen: useRestoredBaseline ? Boolean(message.baselineGenerating) : Boolean(base.generating),
       responseCandidateText: '',
       responseCandidateSignature: null,
       responseLastChangedAt: Date.now(),
       responseSent: false,
       sendActionExecuted: false,
+      inputPrimed: false,
       deliveryConfirmed: false,
+      contextFileName: '',
+      contextFileAttached: false,
     };
     return base;
   }
@@ -253,6 +547,19 @@
     if (!input) throw new Error(`${provider} input editor not found.`);
     setInputText(input, text);
     await new Promise((resolve) => setTimeout(resolve, 180));
+
+    // Gemini and other rich editors can occasionally accept only part of a
+    // programmatic multi-line insertion. Never click Send unless the composer
+    // really contains the complete prompt we intended to submit.
+    const composerText = inputText(input);
+    const composerSignature = await signatureText(composerText);
+    const expectedSignature = transaction.promptSignature || await signatureText(text);
+    const composerMatchesPrompt = Boolean(composerSignature && expectedSignature && composerSignature === expectedSignature);
+    if (!composerMatchesPrompt) {
+      throw new Error(`${provider} composer did not accept the complete relay prompt; send was cancelled to prevent a partial or duplicate message.`);
+    }
+    transaction.inputPrimed = true;
+
     const button = findSendButton(input);
     if (button) {
       button.click();
@@ -262,28 +569,57 @@
       else input.dispatchEvent(new KeyboardEvent('keydown', { bubbles: true, cancelable: true, key: 'Enter', code: 'Enter', keyCode: 13, which: 13 }));
     }
     transaction.sendActionExecuted = true;
-    return { sendActionExecuted: true };
+    return { sendActionExecuted: true, inputPrimed: true };
   }
 
   async function deliveryEvidence() {
-    if (!transaction) return { matchingUserMessage: false, inputCleared: false, generationStarted: false };
+    if (!transaction) return { matchingUserMessage: false, inputCleared: false, generationStarted: false, userMessageAdvanced: false, assistantAdvanced: false };
     const roots = getRoots(true);
     const users = collectMessages(adapter.userSelectors, roots);
+    const latestUserItem = users.at(-1) || null;
+    const latestUserSignature = latestUserItem ? await signatureText(latestUserItem.text) : null;
     let matchingUserMessage = false;
-    let userSignature = null;
     for (let i = users.length - 1; i >= Math.max(0, users.length - 6); i -= 1) {
       const sig = await signatureText(users[i].text);
       if (sig && sig === transaction.promptSignature) {
         matchingUserMessage = true;
-        userSignature = sig;
         break;
       }
     }
+    const assistantMessages = collectMessages(adapter.assistantSelectors, roots);
+    const assistant = assistantMessages.at(-1) || { el: null, text: '' };
+    const assistantSignature = await signatureText(assistant.text);
     const input = findInput();
     const inputCleared = Boolean(input && !inputText(input));
     const generationStarted = isGenerating(roots) && !transaction.baselineGenerating;
-    const userMessageAdvanced = Boolean(userSignature && userSignature !== transaction.baselineUserSignature);
-    return { matchingUserMessage, inputCleared, generationStarted, userMessageAdvanced, userSignature };
+    const userMessageAdvanced = Boolean(latestUserSignature && latestUserSignature !== transaction.baselineUserSignature);
+    const userNodeAdvanced = users.length > (Number(transaction.baselineUserCount) || 0);
+    const assistantSignatureAdvanced = Boolean(assistantSignature && assistantSignature !== transaction.baselineAssistantSignature);
+    const assistantNodeAdvanced = assistantMessages.length > (Number(transaction.baselineAssistantCount) || 0);
+    const assistantAdvanced = assistantSignatureAdvanced || assistantNodeAdvanced;
+    return {
+      matchingUserMessage,
+      inputPrimed: Boolean(transaction.inputPrimed),
+      inputCleared,
+      generationStarted,
+      userMessageAdvanced,
+      userNodeAdvanced,
+      assistantAdvanced,
+      assistantNodeAdvanced,
+      userSignature: latestUserSignature,
+      assistantSignature,
+      userCount: users.length,
+      assistantCount: assistantMessages.length,
+    };
+  }
+
+  function deliveryObserved(evidence) {
+    if (!transaction) return false;
+    if (evidence.matchingUserMessage) return true;
+    if (!transaction.sendActionExecuted) return false;
+    if (evidence.userNodeAdvanced || evidence.assistantAdvanced) return true;
+    if (transaction.inputPrimed && evidence.inputCleared) return true;
+    return Boolean(evidence.inputCleared && (evidence.generationStarted || evidence.userMessageAdvanced));
   }
 
   async function verifyDelivery(message) {
@@ -291,18 +627,27 @@
     const timeoutMs = Math.min(12000, Math.max(0, Number(message.timeoutMs) || 7000));
     const deadline = Date.now() + timeoutMs;
     let evidence = await deliveryEvidence();
-    while (!evidence.matchingUserMessage && Date.now() < deadline) {
+    while (!deliveryObserved(evidence) && Date.now() < deadline) {
       await new Promise((resolve) => setTimeout(resolve, 300));
       evidence = await deliveryEvidence();
     }
     return evidence;
   }
 
+  function responseQuietMs() {
+    const policy = globalThis.__LEE_RELAY_RESPONSE_POLICY__;
+    if (typeof policy?.confirmationQuietMs === 'function') {
+      return policy.confirmationQuietMs(adapter, transaction);
+    }
+    return Math.max(500, Number(adapter.responseQuietMs) || 2000);
+  }
+
   async function responseStatus() {
     if (!transaction) return { active: false };
     const snap = await snapshot();
     const evidence = await deliveryEvidence();
-    const changed = Boolean(snap.assistantSignature && snap.assistantSignature !== transaction.baselineAssistantSignature);
+    const assistantNodeAdvanced = Number(snap.assistantCount) > (Number(transaction.baselineAssistantCount) || 0);
+    const changed = Boolean((snap.assistantSignature && snap.assistantSignature !== transaction.baselineAssistantSignature) || assistantNodeAdvanced);
     const stableMs = Date.now() - transaction.responseLastChangedAt;
     return {
       active: true,
@@ -311,6 +656,7 @@
       ...evidence,
       changed,
       stableMs,
+      quietMs: responseQuietMs(),
       transactionId: transaction.transactionId,
       meetingId: transaction.meetingId,
       participantId: transaction.participantId,
@@ -324,7 +670,8 @@
     const deliveryCorrelated = Boolean(transaction.deliveryConfirmed || evidence.matchingUserMessage);
     if (!deliveryCorrelated) return;
     if (snap.generating) transaction.generationSeen = true;
-    const changed = Boolean(snap.assistantSignature && snap.assistantSignature !== transaction.baselineAssistantSignature);
+    const assistantNodeAdvanced = Number(snap.assistantCount) > (Number(transaction.baselineAssistantCount) || 0);
+    const changed = Boolean((snap.assistantSignature && snap.assistantSignature !== transaction.baselineAssistantSignature) || assistantNodeAdvanced);
     if (!changed || !snap.assistantText) return;
 
     if (snap.assistantSignature !== transaction.responseCandidateSignature) {
@@ -339,14 +686,17 @@
         provider,
         text: snap.assistantText,
         signature: snap.assistantSignature,
+        assistantNodeAdvanced,
+        assistantCount: snap.assistantCount,
         generating: snap.generating,
       }).catch(() => {});
       return;
     }
 
     const stableMs = Date.now() - transaction.responseLastChangedAt;
+    const quietMs = responseQuietMs();
     const staleGeneration = snap.generating && stableMs >= 90000;
-    if ((snap.generating && !staleGeneration) || stableMs < adapter.responseQuietMs) return;
+    if ((snap.generating && !staleGeneration) || stableMs < quietMs) return;
 
     transaction.responseSent = true;
     transaction.armed = false;
@@ -358,14 +708,65 @@
       provider,
       text: snap.assistantText,
       signature: snap.assistantSignature,
+      assistantNodeAdvanced,
+      assistantCount: snap.assistantCount,
       generationSeen: transaction.generationSeen,
       staleGeneration,
     }).catch(() => { transaction.responseSent = false; transaction.armed = true; });
   }
 
+  function requestResponseCheck() {
+    if (!transaction?.armed || transaction.responseSent) return;
+    if (responseCheckRunning) {
+      responseCheckPending = true;
+      return;
+    }
+    responseCheckRunning = true;
+    Promise.resolve().then(async () => {
+      do {
+        responseCheckPending = false;
+        await pollResponse();
+      } while (responseCheckPending && transaction?.armed && !transaction.responseSent);
+    }).catch(() => {}).finally(() => {
+      responseCheckRunning = false;
+      if (responseCheckPending) requestResponseCheck();
+    });
+  }
+
+  function observeResponseRoots(force = true) {
+    if (!responseMutationObserver) {
+      responseMutationObserver = new MutationObserver(() => {
+        if (!transaction?.armed || transaction.responseSent) return;
+        // MutationObserver callbacks continue to fire for DOM changes even when
+        // background-tab interval timers are heavily throttled. This is the
+        // primary wake-up path for Gemini/Copilot background responses.
+        requestResponseCheck();
+        // pollResponse() force-refreshes the root cache. Reuse that cache here
+        // instead of rescanning the entire provider DOM for every streamed token.
+        queueMicrotask(() => observeResponseRoots(false));
+      });
+    }
+    for (const root of getRoots(force)) {
+      if (observedResponseRoots.has(root)) continue;
+      try {
+        responseMutationObserver.observe(root, {
+          subtree: true,
+          childList: true,
+          characterData: true,
+          attributes: true,
+          attributeFilter: ['data-is-streaming', 'aria-busy', 'class'],
+        });
+        observedResponseRoots.add(root);
+      } catch { /* inaccessible root */ }
+    }
+  }
+
   function ensurePolling() {
+    observeResponseRoots();
     if (pollTimer) return;
-    pollTimer = setInterval(() => pollResponse().catch(() => {}), 600);
+    // Interval polling is only a fallback. Background provider tabs can throttle
+    // timers, so response mutations also trigger requestResponseCheck().
+    pollTimer = setInterval(() => requestResponseCheck(), 600);
   }
 
   function responseRect() {
@@ -397,14 +798,33 @@
           sendResponse({ ok: true, ...base });
           break;
         }
+        case 'ATTACH_CONTEXT_FILE': {
+          const result = await attachContextFile(message);
+          sendResponse({ ok: true, ...result });
+          break;
+        }
         case 'SUBMIT_MESSAGE': {
           const result = await submitMessage(message);
-          sendResponse({ ok: true, sendActionExecuted: Boolean(result.sendActionExecuted), delivered: false });
+          sendResponse({ ok: true, sendActionExecuted: Boolean(result.sendActionExecuted), inputPrimed: Boolean(result.inputPrimed), delivered: false });
           break;
         }
         case 'VERIFY_DELIVERY': {
           const evidence = await verifyDelivery(message);
-          sendResponse({ ok: true, matchingUserMessage: Boolean(evidence.matchingUserMessage), inputCleared: Boolean(evidence.inputCleared), generationStarted: Boolean(evidence.generationStarted), userSignature: evidence.userSignature || null });
+          sendResponse({
+            ok: true,
+            matchingUserMessage: Boolean(evidence.matchingUserMessage),
+            inputPrimed: Boolean(evidence.inputPrimed),
+            inputCleared: Boolean(evidence.inputCleared),
+            generationStarted: Boolean(evidence.generationStarted),
+            userMessageAdvanced: Boolean(evidence.userMessageAdvanced),
+            userNodeAdvanced: Boolean(evidence.userNodeAdvanced),
+            assistantAdvanced: Boolean(evidence.assistantAdvanced),
+            assistantNodeAdvanced: Boolean(evidence.assistantNodeAdvanced),
+            userSignature: evidence.userSignature || null,
+            assistantSignature: evidence.assistantSignature || null,
+            userCount: Number(evidence.userCount) || 0,
+            assistantCount: Number(evidence.assistantCount) || 0,
+          });
           break;
         }
         case 'ARM_RESPONSE_OBSERVER':
@@ -417,6 +837,7 @@
           transaction.responseCandidateSignature = null;
           transaction.responseLastChangedAt = Date.now();
           ensurePolling();
+          requestResponseCheck();
           sendResponse({ ok: true });
           break;
         case 'GET_TRANSACTION_STATUS': {

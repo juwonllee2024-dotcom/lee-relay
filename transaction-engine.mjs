@@ -40,7 +40,9 @@ export function createTransaction(args = {}) {
     promptText: String(args.promptText || ''),
     promptSignature: args.promptSignature || null,
     preAssistantSignature: args.preAssistantSignature || null,
+    preAssistantCount: Number(args.preAssistantCount) || 0,
     preUserSignature: args.preUserSignature || null,
+    preUserCount: Number(args.preUserCount) || 0,
     responseText: args.responseText || '',
     responseSignature: args.responseSignature || null,
     attempt: Number(args.attempt) || 0,
@@ -51,6 +53,11 @@ export function createTransaction(args = {}) {
     responseTimeoutMs: Number.isFinite(args.responseTimeoutMs) ? Math.max(1000, args.responseTimeoutMs) : 120000,
     error: args.error || '',
     deliveryEvidence: args.deliveryEvidence || null,
+    sendActionExecuted: Boolean(args.sendActionExecuted),
+    inputPrimed: Boolean(args.inputPrimed),
+    baselineCaptured: Boolean(args.baselineCaptured),
+    preAssistantCount: Number(args.preAssistantCount) || 0,
+    preUserCount: Number(args.preUserCount) || 0,
     lastRetryStage: args.lastRetryStage || null,
   };
 }
@@ -81,7 +88,11 @@ export function canAcceptEvent(tx, event = {}) {
 }
 
 export function deliveryEvidenceConfirmed(evidence = {}) {
-  return Boolean(evidence.matchingUserMessage || (evidence.sendActionExecuted && evidence.inputCleared && evidence.generationStarted));
+  if (evidence.matchingUserMessage) return true;
+  if (!evidence.sendActionExecuted) return false;
+  if (evidence.userNodeAdvanced || evidence.assistantAdvanced) return true;
+  if (evidence.inputPrimed && evidence.inputCleared) return true;
+  return Boolean(evidence.inputCleared && (evidence.generationStarted || evidence.userMessageAdvanced));
 }
 
 export function shouldRetryTransaction(tx) {

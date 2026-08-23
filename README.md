@@ -1,304 +1,183 @@
-<div align="center">
+# Lee Relay Bot v4.0.1
 
-# Lee Relay
+## v4 coordination features
 
-## **STOP BEING THE MESSENGER BETWEEN AIs.**
+Lee Relay v4 keeps the v3.0.8 Interactive and Full Auto meeting flows, including Gemini/Copilot background-tab response capture, and adds coordination controls:
 
-Copy from ChatGPT.  
-Paste into Claude.  
-Copy Claude.  
-Paste into Gemini.
+- **Participant roles** — assign each AI a Facilitator, Researcher, Critic, Strategist, Summarizer, or custom role. The role is scoped to that participant's prompt.
+- **Session templates** — choose `Freeform`, `9-axis channel analysis`, `Debate`, or `Planning`. A session advances through explicit phases and records progress in Activity.
+- **Loop Guard** — bound autonomous hops, repeated speakers, and repeated routes. When a bound is reached, Full Auto pauses visibly for review instead of continuing indefinitely.
 
-### **Why are YOU doing the relay?**
+The new coordination state is local and optional. Existing meetings migrate from the v3 saved state without losing the title, topic, participants, transcript, settings, or mode. The provider tabs remain ordinary Gemini/Copilot tabs; v4 does not activate them or steal foreground focus while running in the background.
 
-# **THAT’S LITERALLY LEE RELAY’S JOB.**
+v4.0.1 fixes ChatGPT long-response capture: Markdown answer bodies are collected as a complete turn, streaming markers are recognized, and a missing streaming marker no longer causes an answer to be finalized after a short pause.
 
-**ChatGPT ↔ Claude ↔ Gemini ↔ Copilot**
+Lee Relay is a Chrome Side Panel meeting room that lets multiple supported AI web apps talk through their normal browser UIs without API keys.
 
-Open the tabs. Connect the AIs. Start the conversation.  
-**Lee Relay keeps it moving.**
+## What changed in v3
 
-### **YOU START IT. THEY KEEP TALKING.**
+- The **Side Panel is now the main interface**, so the control room stays available while you switch between AI tabs.
+- Meetings start with **2 participants** and can expand to **6**.
+- Lee Relay owns a **master transcript** independent of the AI websites.
+- Smart routing defaults to round-robin but can route to an AI that is clearly addressed by name.
+- A turn uses a verified transaction lifecycle:
+  `PREPARING → SENDING → VERIFYING_DELIVERY → DELIVERED → WAITING_FOR_GENERATION → RECEIVING → VERIFYING_RESPONSE → COMPLETE`.
+- **Clicking Send is not treated as delivery.** Delivery needs observable evidence from the provider page.
+- Failed turns become **NEEDS ATTENTION** with Retry / Skip / Reconnect controls instead of remaining falsely LIVE.
+- The Activity panel shows the stage where a turn progressed or failed.
 
-`No API keys · No copy-paste relay · No local models · No separate relay server`
 
-<br>
+## Hardened provider response relay (v3.0.8)
 
-<img src="assets/lee-relay-demo.gif" alt="Actual Lee Relay screen-recording extract — connect the AI tabs, ChatGPT speaks, then Gemini responds" width="640">
+### Gemini / Claude response capture hardening
 
-<br>
+- Gemini: recognizes current `response-container`, `message-content`, `.response-content`, `.query-text`, Quill composer, and `aria-busy` DOM variants.
+- Claude: prefers `.font-claude-response` for clean assistant-body extraction while keeping older fallbacks.
+- Message discovery uses one semantic selector family at a time so nested provider nodes do not double-count a single turn.
+- The open Lee Relay Side Panel sends a lightweight active-turn heartbeat so the service worker can recover completed answers even when a provider background page throttles its own timers.
+- When the Gemini tab is hidden, v3.0.8 uses the required `debugger` permission to keep that tab's page lifecycle active with focus emulation. Chrome shows this permission warning when the unpacked extension is loaded. It never activates the tab or steals focus.
 
-**ACTUAL SCREEN RECORDING — setup → ChatGPT speaks → Gemini responds. No manual copy/paste.**
+Lee Relay now detects provider response DOM mutations and independently re-checks the active turn from the extension background. Gemini or Copilot can finish answering while you are viewing a different browser tab; Lee Relay no longer depends on the provider tab becoming active before it can continue the meeting.
 
-[![Get Lee Relay](https://img.shields.io/badge/GET_LEE_RELAY-Download-111111?style=for-the-badge)](https://github.com/juwonllee2024-dotcom/lee-relay/releases)
-[![Install](https://img.shields.io/badge/INSTALL-60_SECONDS-4285F4?style=for-the-badge&logo=googlechrome&logoColor=white)](#installation)
+## Adaptive Context Delivery (v3.0.5+)
 
-<br>
+Long meetings no longer blindly paste the entire transcript into a provider composer. Lee Relay now chooses a delivery mode per provider:
 
-**They don’t just answer you anymore. They answer each other.**
+- **INLINE** — short meetings are sent directly in the composer.
+- **COMPACT** — medium meetings prioritize the newest turns and stay under a safe provider-specific character budget.
+- **CONTEXT FILE** — long meetings create a `lee-relay-context-turn-XXX.txt` attachment containing earlier context, recent conversation, and the latest turn. The composer receives only a short instruction telling the AI to read the attachment and continue the meeting.
+- **FALLBACK INLINE** — if the provider does not expose a usable file-upload control, Lee Relay automatically falls back to a bounded recent-context prompt instead of overflowing the composer.
 
-</div>
+For Microsoft Copilot, file mode switches on well before its observed **10,240-character composer limit**. The Activity panel records which context mode was used and whether a context file was attached or a fallback was necessary.
 
----
+## Supported sites
 
-## Your clipboard should not be the protocol.
+- ChatGPT (`chatgpt.com`, `chat.openai.com`)
+- Claude (`claude.ai`)
+- Google Gemini (`gemini.google.com`)
+- Microsoft Copilot (`copilot.microsoft.com`)
 
-The smartest AI tools in your browser can all talk to **you** — but they still cannot naturally carry a shared conversation from one tab to the next.
+## Install
 
-So people do this:
+Requires Chrome 120 or later.
 
-```text
-You → ChatGPT
-      ↓ copy
-You → Claude
-      ↓ copy
-You → Gemini
-      ↓ copy
-You → Copilot
-      ↓ copy
-```
+1. Download `lee-relay-v4.0.1.zip` from the [v4.0.1 release](https://github.com/juwonllee2024-dotcom/lee-relay/releases/tag/v4.0.1) and unzip it into a new folder.
+2. Open `chrome://extensions`.
+3. Enable **Developer mode**.
+4. Choose **Load unpacked**.
+5. Select the extracted folder that contains `manifest.json` directly at its root.
+6. Pin Lee Relay if desired.
+7. Click the Lee Relay toolbar action. Chrome opens the Lee Relay Side Panel.
 
-**You are doing the orchestration by hand.**
+## Start a meeting
 
-Lee Relay changes that:
+1. Open at least two supported AI chats in normal Chrome tabs.
+2. Open the Lee Relay Side Panel.
+3. Choose an open AI tab for participant 1 and participant 2.
+4. Optionally press **+ Add AI** to add more participants (maximum 6).
+5. Choose **Interactive** or **Full Auto**, then type a meeting topic in the composer.
+6. Press **Start Meeting**. In Interactive mode the composer text becomes the first USER meeting entry; in Full Auto it is stored as the meeting topic only.
+7. Lee Relay sends a structured meeting context to the chosen first speaker and verifies that the provider actually accepted it before waiting for a response.
 
-```text
-             ┌──────────────┐
-             │   ChatGPT    │
-             └──────┬───────┘
-                    ↓
-┌─────┐      ┌──────────────┐      ┌──────────────┐
-│ YOU │ ───→ │  LEE RELAY   │ ───→ │    Claude    │
-└─────┘      └──────┬───────┘      └──────┬───────┘
-                    ↑                     ↓
-             ┌──────┴───────┐      ┌──────────────┐
-             │   Copilot    │ ←─── │    Gemini    │
-             └──────────────┘      └──────────────┘
-```
+While LIVE in Interactive mode, anything you type into **Say something to the room…** becomes a USER transcript entry and is included in the next AI turn.
 
-### **One prompt starts the meeting. The AIs carry the conversation forward.**
+## Meeting modes
 
-ChatGPT can respond to what Claude just said. Claude can hand the discussion to Gemini. Gemini can challenge the previous answer. Copilot can continue from the shared context. You can jump in whenever you want.
+**Interactive** is the default. Your messages are visible in the master transcript and are included in later AI context.
 
-**No manual copy-paste chain. No API-key setup. No local model stack.**
+**Full Auto** lets the connected AI participants continue as an AI-only discussion. The user can observe the transcript, press **Pause** or **End** at any time, and use the existing Retry / Skip / Reconnect recovery controls. After pausing, press **Join conversation** to switch back to Interactive mode.
 
-> **Stop connecting AIs with Ctrl+C / Ctrl+V.**
+Full Auto is prompt-level concealment, not a provider system-role conversation. The provider web UI still receives each generated turn through its normal **user-composer** input, so the provider may display it as user-authored text. Full Auto does not erase provider history. For strict isolation, open a fresh provider conversation in each AI tab before starting; Lee Relay never deletes provider history automatically.
 
----
+The Full Auto composer is disabled while LIVE. To add a human message, pause first and join the conversation.
 
-Lee Relay is a **browser-native multi-AI meeting room** for the normal web versions of ChatGPT, Claude, Gemini, and Microsoft Copilot.
+## Smart routing
 
-Open the AI tabs you already use, connect them in Lee Relay's persistent Chrome Side Panel, and let them discuss the same topic while Lee Relay manages speaker order, shared context, delivery verification, retries, and the meeting transcript.
+If an AI clearly says something like:
 
-**No OpenAI API key. No Anthropic API key. No Google AI API key. No Microsoft API key. No Python server, Docker stack, or local model download is required.**
+- `Claude, what do you think?`
+- `Gemini에게 이 부분을 검토해 달라고 하자.`
 
-> Lee Relay does not replace the AI services themselves. The AI models remain online and each provider's account, subscription, usage limits, availability, and terms still apply.
+Lee Relay can route the next turn to that participant. A simple historical mention such as `Claude mentioned this earlier` is not enough; ambiguous routing falls back to round-robin.
 
-## Why Lee Relay is different
+## Statuses
 
-Most multi-agent tools orchestrate model **APIs**. Lee Relay orchestrates the **AI websites already open in your browser**.
+- **READY** — meeting is configured but not running.
+- **LIVE** — automated turns are allowed.
+- **PAUSED** — transcript remains available; new AI turns are not scheduled.
+- **NEEDS ATTENTION** — an active transaction could not be verified/recovered automatically.
+- **FINISHED** — meeting ended or reached the configured maximum AI turns.
 
-| | API-first agent frameworks | Lee Relay |
-|---|---|---|
-| Model connection | API credentials | Logged-in AI web tabs |
-| Separate API billing | Usually | Not required by Lee Relay |
-| Separate runtime | Common | Browser extension orchestration |
-| Main interface | Terminal / custom app | Persistent Chrome Side Panel |
-| Human joins discussion | Framework-dependent | Built into the meeting room |
-| AI-to-AI handoff | API/message plumbing | Relay between supported web tabs |
-| Cross-provider meeting | Requires provider/API setup | Select supported open tabs |
-| Failure visibility | Framework-dependent | Transaction stages + Activity log |
-
-## Highlights
-
-- **💬 AI-to-AI conversation** — each participant receives shared meeting context and can respond to what another AI just said.
-- **🔁 Automatic handoffs** — Lee Relay moves the conversation between selected AI tabs instead of making you copy and paste.
-- **🌐 Browser-native** — runs as a Chrome Manifest V3 extension.
-- **🔑 No API keys required by Lee Relay** — it automates supported provider web UIs.
-- **🤝 Multi-AI meetings** — start with 2 participants and expand up to 6.
-- **📌 Persistent Side Panel** — switch between AI tabs without losing the control room.
-- **🧠 Smart speaker routing** — round-robin by default; explicit participant addressing can route the next turn.
-- **👤 Human in the loop** — type directly into the shared room at any point.
-- **📜 Master transcript** — Lee Relay keeps a meeting-level conversation history independent of any one provider tab.
-- **✅ Verified delivery** — clicking a Send button is *not* enough to mark a turn delivered.
-- **🔄 Recovery engine** — late delivery checks, bounded retries, page re-attachment, and watchdog recovery.
-- **🚨 No silent fake-LIVE state** — exhausted recovery becomes `NEEDS ATTENTION` with Retry / Skip / Reconnect controls.
-- **🧩 Provider-neutral design** — current adapters support ChatGPT, Claude, Gemini, and Copilot.
+Participant cards also show states such as SENDING, VERIFYING, THINKING, RECEIVING, LISTENING, RECONNECTING, and ERROR.
 
-## How it works
+## Reliability and recovery
 
-```mermaid
-flowchart LR
-    U[You] --> M[Lee Relay Meeting Room]
-    M --> C[ChatGPT web]
-    C --> M
-    M --> A[Claude web]
-    A --> M
-    M --> G[Gemini web]
-    G --> M
-    M --> P[Copilot web]
-    P --> M
-```
+A v3 turn is transaction-aware. Every provider event carries meeting, transaction, participant, and tab identity.
 
-The orchestration state lives in the browser extension. The actual AI requests and responses still happen through the provider websites you choose.
+Delivery confirmation uses multiple page signals. A matching outgoing USER message remains strong evidence; after Lee Relay verifies that the full prompt was actually present in the composer before Send, a cleared composer is also accepted so provider DOM selector gaps cannot trigger duplicate sends.
 
-## A turn is a transaction, not a click
+After a send action, Lee Relay now uses **at-most-once automatic delivery**: it re-verifies the same turn but does not automatically click Send again. This prevents ambiguous Gemini DOM states from multiplying one turn into several duplicate prompts. A fresh send happens only when you explicitly press Retry.
 
-Lee Relay v3 treats each AI turn as a verified transaction:
+If a page reloads while waiting for a response, the content script reattaches to the participant and the watchdog can re-arm the active transaction using the original pre-response baseline.
 
-```mermaid
-stateDiagram-v2
-    [*] --> PREPARING
-    PREPARING --> SENDING
-    SENDING --> VERIFYING_DELIVERY
-    VERIFYING_DELIVERY --> DELIVERED: provider page evidence
-    DELIVERED --> WAITING_FOR_GENERATION
-    WAITING_FOR_GENERATION --> RECEIVING
-    RECEIVING --> VERIFYING_RESPONSE
-    VERIFYING_RESPONSE --> COMPLETE
-    VERIFYING_DELIVERY --> NEEDS_ATTENTION: retries exhausted
-    VERIFYING_RESPONSE --> NEEDS_ATTENTION: recovery exhausted
-    NEEDS_ATTENTION --> SENDING: Retry
-    NEEDS_ATTENTION --> [*]: Skip / End
-```
+If automatic recovery is exhausted, the meeting becomes NEEDS ATTENTION instead of silently showing LIVE forever.
 
-This exists because **`button.click()` is an action, not proof that an AI provider accepted the message**.
+## Recovery controls
 
-## Supported AI websites
+When NEEDS ATTENTION appears:
 
-| Provider | Website |
-|---|---|
-| ChatGPT | `chatgpt.com`, `chat.openai.com` |
-| Claude | `claude.ai` |
-| Gemini | `gemini.google.com` |
-| Microsoft Copilot | `copilot.microsoft.com` |
+- **Retry** — explicitly starts a fresh transaction for the same participant/turn context. Automatic recovery itself never resends after a Send action.
+- **Skip** — skips the current participant and routes to the next connected participant.
+- **Reconnect** — tries to reattach the participant's currently bound tab. If the tab was closed, choose another open AI tab from that participant card first.
 
-Provider websites can change their DOM without notice. Lee Relay is intentionally transparent about this constraint: adapter maintenance may be needed after provider UI changes.
+Closing an AI tab does **not** delete the meeting transcript.
 
-## Installation
+## Screenshots
 
-**Requirements:** Google Chrome 120 or later and access to at least two supported AI web apps.
+Screenshot capture is optional and does not block a verified meeting turn.
 
-1. Download `lee-relay-v3.0.3.zip` and its `.sha256` file from [GitHub Releases](https://github.com/juwonllee2024-dotcom/lee-relay/releases/latest).
-2. Verify the archive before extracting it. PowerShell: `Get-FileHash .\lee-relay-v3.0.3.zip -Algorithm SHA256`; macOS/Linux: `sha256sum -c lee-relay-v3.0.3.zip.sha256`.
-3. Extract the ZIP into a new folder. `manifest.json` must be directly inside that folder.
-4. Open `chrome://extensions`, turn on **Developer mode**, and click **Load unpacked**.
-5. Select the extracted folder, open at least two supported AI chats, and click the Lee Relay toolbar icon.
+For exact background-tab response capture, Lee Relay uses the required `debugger` permission. If Chrome has not accepted that extension permission, Lee Relay will not activate another tab just to take a screenshot. Screenshot failures appear as Activity warnings and do not fail a completed turn.
 
-The release archive is self-contained. It does not require npm, Node.js, an API key, a local model, Docker, or a Lee Relay server. Every release includes a checksum and is built through the same `npm run verify` command used in CI.
+## Persistence
 
-### Trust boundary
+- `chrome.storage.local` stores durable meeting records/settings without stale live tab IDs.
+- `chrome.storage.session` stores live participant tab bindings and active transaction state.
 
-Lee Relay automates the web pages you explicitly connect. Prompts and responses sent to a participant still go to that provider. Read [PRIVACY.md](PRIVACY.md), review each provider's terms, and do not connect confidential material unless your account and organization allow it.
+After a browser restart, the saved transcript can remain, but live participants need to be rebound to currently open AI tabs before automation resumes.
 
-## Start your first AI meeting
+## Important limitation
 
-1. Select an open AI tab for participant 1.
-2. Select a second AI tab for participant 2.
-3. Optionally choose **+ Add AI** to expand the room, up to 6 participants.
-4. Enter the meeting topic.
-5. Press **Start Meeting**.
-6. Watch the Side Panel show each participant's state and the shared transcript.
-7. Type into **Say something to the room…** whenever you want to intervene.
+Lee Relay automates third-party AI web interfaces. ChatGPT, Claude, Gemini, and Copilot can change their DOM structures without notice. Provider selectors may therefore need maintenance after a site UI update. The v3 transaction/recovery system is designed to surface these failures explicitly instead of silently advancing the meeting.
 
-### Smart routing
 
-If a participant clearly addresses another participant by name, Lee Relay can route the next turn to that AI. Ambiguous mentions fall back to round-robin instead of guessing.
+## v3.0.4 Gemini duplicate/echo hardening
 
-## Reliability model
+- Removed the visible `[LEE RELAY MEETING]` protocol envelope from new outgoing turns. Relay context is now a compact single-line prompt, which is safer for Gemini's rich-text composer.
+- Verifies that the full relay prompt is actually present in the provider composer **before** clicking Send; partial insertion is cancelled instead of sent.
+- Once Send has been executed, automatic recovery only re-verifies delivery and never auto-resends the same transaction.
+- Repeated `PREPARE_DELIVERY` calls for the same transaction preserve the original baseline instead of moving it forward and erasing first-send evidence.
+- A primed composer that clears after Send is accepted as delivery evidence even when provider-specific message selectors miss the new turn.
+- Provider response text is sanitized before it enters the shared transcript, removing echoed relay scaffolding/prompt text while preserving the real AI answer.
+- Explicit **Retry** starts a fresh transaction; stale events from the previous ambiguous attempt cannot complete the new one.
 
-Lee Relay v3 was rebuilt around failure visibility rather than optimistic automation.
+## v3.0.3 local hardening
 
-**Delivery confirmation** prefers an observable outgoing user-message node. A secondary delivery signal is accepted only when the input clears *and* a new generation state begins after the pre-send baseline.
+- Added DOM-node-count delivery receipts so providers that collapse every long relay prompt to the same visible label still cannot trigger an accidental resend.
+- Added response-node correlation so two consecutive AI replies with identical text are treated as separate responses when the provider created a new assistant message.
+- Blocked the reserved `[LEE RELAY MEETING]` envelope from the initial meeting seed path as well as normal human messages.
+- Added regression and local runtime smoke checks for these edge cases.
 
-**Response correlation** is transaction-scoped using meeting, transaction, participant, and tab identity. A verified background delivery receipt remains authoritative even if a provider collapses or visually rewrites a long outgoing prompt.
+## v3.0.2 Gemini relay-loop fix
 
-**Recovery** includes idempotency checks before resend, bounded retries, page re-attachment, a 30-second watchdog, and explicit `NEEDS ATTENTION` state when automation cannot prove success.
+- Fixed duplicate delivery retries when Gemini collapses or rewrites the visible outgoing Lee Relay prompt instead of exposing the exact sent text in the DOM.
+- Delivery can now be confirmed by a post-send outgoing-message advance or a new assistant response, even if the exact prompt signature is unavailable.
+- Lee Relay internal envelopes beginning with `[LEE RELAY MEETING]` are reserved protocol messages and are blocked from re-entering the shared transcript as human input.
+- Existing polluted human transcript entries that contain an internal Lee Relay envelope are stripped when meeting state is read and are excluded from future prompts.
+- Added regression coverage for transformed/collapsed provider prompts and transcript-envelope contamination.
 
-Read the deeper design notes in [Architecture](docs/architecture.md) and the recovery guide in [Troubleshooting](docs/troubleshooting.md).
+## v3.0.1 reliability fix
 
-## Privacy and online behavior
-
-Lee Relay uses the online AI websites you select. Messages sent into a meeting are therefore transmitted to those providers under their own privacy policies and terms.
-
-Lee Relay itself does **not require a separate Lee Relay cloud relay server or API-key proxy**. Meeting orchestration, state, and transcript management are performed by the browser extension using Chrome extension storage.
-
-Do not interpret this as “all data stays on your device.” It does not: content intentionally sent to an AI participant is sent to that AI service.
-
-See [PRIVACY.md](PRIVACY.md) for the precise model.
-
-## Development
-
-No runtime npm dependencies are required for the extension or test suite.
-
-```bash
-npm test
-npm run check
-npm run verify
-```
-
-The current suite contains **60 regression and structure tests** covering the meeting engine, transaction lifecycle, provider boundaries, routing, persistence, Side Panel architecture, and previously discovered failure modes.
-
-### Repository layout
-
-```text
-.
-├── background.js              # orchestration + Chrome extension service worker
-├── content.js                 # provider-page automation boundary
-├── meeting-engine.mjs         # meeting / participant / transcript state
-├── transaction-engine.mjs     # verified turn lifecycle
-├── router.mjs                 # smart speaker selection
-├── provider-adapters.mjs      # provider selector contracts
-├── sidepanel.html/.css/.js    # persistent meeting room UI
-├── relay-core.mjs             # shared provider / normalization helpers
-├── tests/                     # Node regression tests
-├── scripts/                   # repository verification utilities
-└── docs/                      # architecture, roadmap, troubleshooting
-```
-
-## Roadmap
-
-Near-term priorities:
-
-- Harden provider adapters against UI changes.
-- Add exportable Markdown / JSON meeting transcripts.
-- Add opt-in per-participant roles (critic, researcher, engineer, etc.).
-- Improve routing beyond explicit-name addressing while keeping deterministic fallback behavior.
-- Add better sanitized demo capture and onboarding.
-- Explore additional browser AI providers without weakening the no-API-key core.
-
-See [docs/roadmap.md](docs/roadmap.md).
-
-## Contributing
-
-Bug reports that include the provider, browser version, exact transaction stage, and sanitized Activity log are especially valuable.
-
-Please read [CONTRIBUTING.md](CONTRIBUTING.md) before opening a pull request.
-
-## Security
-
-Please do **not** publish sensitive meeting transcripts, account data, cookies, auth tokens, or private screenshots in a public issue. See [SECURITY.md](SECURITY.md).
-
-## Project status
-
-Lee Relay is an **early public browser-automation project**. The orchestration and recovery engine is tested, but third-party web interfaces can change independently of this repository. Expect provider adapters to evolve.
-
-## Disclaimer
-
-Lee Relay is an independent open-source project and is not affiliated with, endorsed by, or sponsored by OpenAI, Anthropic, Google, or Microsoft. Product names and trademarks belong to their respective owners.
-
-Users are responsible for complying with the terms, policies, and usage limits of the AI services they connect.
-
-## License
-
-MIT — see [LICENSE](LICENSE).
-
----
-
-<div align="center">
-
-### **Stop carrying messages between AIs. Start the meeting and let Lee Relay carry the conversation.**
-
-If Lee Relay is useful to you, **star the repository**.
-
-</div>
+- Fixed a ChatGPT long-prompt correlation bug: collapsed `Show more` user messages no longer leave a completed response stuck in `THINKING`.
+- Once background delivery verification succeeds, the response observer trusts that transaction receipt instead of requiring an exact visible outgoing-message DOM signature again.
+- Response confirmation and watchdog recovery use the same delivery-correlation rule.
+- Starting a meeting no longer duplicates the same user seed topic if it was already added to the room transcript.

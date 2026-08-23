@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "Lee Relay — AI Meeting Room",
-  "version": "3.0.3",
-  "description": "Let ChatGPT, Claude, Gemini, and Copilot discuss one topic in a verified Chrome Side Panel.",
+  "name": "Lee Relay Bot",
+  "version": "4.0.1",
+  "description": "Persistent multi-AI meeting room with background-tab relay, participant roles, session templates, Loop Guard, adaptive context files, and verified browser automation.",
   "minimum_chrome_version": "120",
   "permissions": [
     "tabs",
@@ -11,7 +11,8 @@
     "downloads",
     "activeTab",
     "alarms",
-    "sidePanel"
+    "sidePanel",
+    "debugger"
   ],
   "host_permissions": [
     "https://gemini.google.com/*",
@@ -40,12 +41,10 @@
         "https://claude.ai/*"
       ],
       "js": [
+        "response-capture-policy.js",
         "content.js"
       ],
       "run_at": "document_idle"
     }
-  ],
-  "optional_permissions": [
-    "debugger"
   ]
 }

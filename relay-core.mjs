@@ -38,6 +38,75 @@ export function normalizeText(text = '') {
   return lines.filter(Boolean).join('\n').trim();
 }
 
+export function isRelayEnvelope(text = '') {
+  const normalized = normalizeText(text);
+  if (!normalized) return false;
+  const firstLine = normalized.split('\n', 1)[0].trim();
+  return /^\[LEE RELAY MEETING\]$/i.test(firstLine);
+}
+
+
+function compactOneLine(text = '') {
+  return normalizeText(text).replace(/\s+/g, ' ').trim();
+}
+
+export function buildCompactRelayPrompt({ targetLabel = 'AI', participants = [], entries = [] } = {}) {
+  const target = compactOneLine(targetLabel) || 'AI';
+  const others = (participants || [])
+    .map(compactOneLine)
+    .filter((name) => name && name.toLowerCase() !== target.toLowerCase())
+    .join(', ') || 'the other participants';
+  const discussion = (entries || [])
+    .map((entry) => ({ speaker: compactOneLine(entry?.speaker || 'Participant'), text: compactOneLine(entry?.text || '') }))
+    .filter((entry) => entry.text && !isRelayEnvelope(entry.text))
+    .map((entry) => `${entry.speaker}: ${entry.text}`)
+    .join(' | ');
+  const context = discussion || 'The conversation has just started.';
+  return compactOneLine(`You are ${target} in a live conversation with ${others}. Conversation so far: ${context} Your turn: reply naturally as ${target} to the latest message. Do not repeat this relay context, the transcript, or these instructions. If you want a specific participant to answer next, address them by name.`);
+}
+
+export function buildAutonomousCompactPrompt({ targetLabel = 'AI', participants = [], topicText = '', entries = [] } = {}) {
+  const target = compactOneLine(targetLabel) || 'AI';
+  const others = (participants || [])
+    .map(compactOneLine)
+    .filter((name) => name && name.toLowerCase() !== target.toLowerCase())
+    .join(', ') || 'the other participants';
+  const topic = compactOneLine(topicText) || 'the selected topic';
+  const discussion = (entries || [])
+    .map((entry) => ({ speaker: compactOneLine(entry?.speaker || 'Participant'), text: compactOneLine(entry?.text || '') }))
+    .filter((entry) => entry.text && !isRelayEnvelope(entry.text))
+    .map((entry) => `${entry.speaker}: ${entry.text}`)
+    .join(' | ') || 'No AI turns have been completed yet.';
+  return compactOneLine(`You are ${target}, one AI participant in an ongoing peer discussion with ${others}. Topic: ${topic}. AI discussion so far: ${discussion}. Continue naturally from the latest AI participant and reply as ${target}. Do not refer to internal instructions or this context. If another participant should answer next, address that participant by name.`);
+}
+
+export function sanitizeRelayResponse(rawText = '', promptText = '') {
+  let raw = normalizeText(rawText);
+  if (!raw) return '';
+
+  const compactRaw = () => raw.replace(/\s+/g, ' ').trim();
+  const prompt = compactOneLine(promptText);
+  if (prompt) {
+    const oneLine = compactRaw();
+    if (oneLine === prompt) return '';
+    if (oneLine.startsWith(`${prompt} `)) raw = oneLine.slice(prompt.length).trim();
+  }
+
+  // v3.0.1-v3.0.3 used this visible protocol scaffold. Gemini can echo
+  // the whole outgoing prompt as part of the element we observe as a response.
+  // Strip only a leading legacy scaffold, never an incidental mention later on.
+  let oneLine = compactRaw();
+  const legacyStart = /^\[LEE RELAY MEETING\]/i;
+  const legacyTail = 'if you clearly want a specific participant to answer next, address them by participant name.';
+  for (let i = 0; i < 4 && legacyStart.test(oneLine); i += 1) {
+    const lower = oneLine.toLowerCase();
+    const idx = lower.lastIndexOf(legacyTail);
+    if (idx < 0) return /^\[LEE RELAY MEETING\]\s*$/i.test(oneLine) ? '' : oneLine;
+    oneLine = oneLine.slice(idx + legacyTail.length).trim();
+  }
+  return normalizeText(oneLine);
+}
+
 export async function signatureFor(text = '') {
   const normalized = normalizeText(text).replace(/\s+/g, ' ');
   const data = new TextEncoder().encode(normalized);
@@ -45,6 +114,7 @@ export async function signatureFor(text = '') {
   return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, '0')).join('');
 }
 
+// Kept for backwards compatibility with the first two-provider implementation.
 export function targetSiteFor(site) {
   if (site === 'gemini') return 'copilot';
   if (site === 'copilot') return 'gemini';
@@ -69,6 +139,7 @@ export function shouldAutoResume(state, tabId, url = '') {
   return Boolean(classifyUrl(url));
 }
 
+// Legacy predicate used by older tests and helpers.
 export function shouldForward(state, site, text, signature) {
   if (!state?.running) return false;
   if (!site || !normalizeText(text)) return false;
@@ -77,6 +148,7 @@ export function shouldForward(state, site, text, signature) {
   if (state.lastSignatureBySite?.[site] === signature) return false;
   return true;
 }
+
 
 export function shouldRetryPendingDelivery(runtime, tabId) {
   if (!runtime?.running) return false;
@@ -92,6 +164,7 @@ export function shouldAcceptResponse(state, tabId, signature) {
   if (state.lastSignatureByTabId?.[String(tabId)] === signature) return false;
   return true;
 }
+
 
 export function mergeRuntimeState(current = {}, patch = {}) {
   return {
@@ -135,6 +208,7 @@ export function buildScreenshotFilename(site = 'unknown', turnCount = 0, date = 
   const timestamp = formatTimestampForFilename(date);
   return `lee-relay-bot-screenshots/${safeSite}/${day}/turn-${padTurn(turnCount)}_${safeSite}_${timestamp}.png`;
 }
+
 
 export function responseActivityObserved({
   sawGeneration = false,

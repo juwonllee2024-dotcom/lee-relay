@@ -55,6 +55,11 @@
     </section>
 
     <section class="composer-section">
+      <div id="interactionMode" class="mode-selector" role="group" aria-label="Meeting mode">
+        <button id="interactiveMode" type="button" aria-pressed="true">Interactive</button>
+        <button id="autonomousMode" type="button" aria-pressed="false">Full Auto</button>
+      </div>
+      <div id="modeHint" class="mode-hint" aria-live="polite"></div>
       <label class="composer-wrap" for="composer">
         <textarea id="composer" rows="3" placeholder="Say something to the room…"></textarea>
         <button id="sendUserMessage" class="send-button" type="button" title="Send to meeting">↑</button>
@@ -62,6 +67,7 @@
       <div class="meeting-actions">
         <button id="startMeeting" class="primary-button" type="button">Start Meeting</button>
         <button id="pauseMeeting" class="secondary-button" type="button">Pause</button>
+        <button id="joinConversation" class="secondary-button" type="button" hidden>Join conversation</button>
         <button id="endMeeting" class="danger-button" type="button">End</button>
       </div>
       <div id="uiNotice" class="ui-notice" aria-live="polite"></div>
@@ -83,8 +89,26 @@
         <label>Response timeout
           <div class="inline-field"><input id="responseTimeout" type="number" min="30" step="10" value="120"><span>sec</span></div>
         </label>
+        <label>Session template
+          <select id="sessionTemplate" class="control-select" aria-label="Session template"></select>
+          <small id="sessionPhaseHint">Freeform discussion</small>
+        </label>
         <label class="switch-row"><span><strong>Smart routing</strong><small>Named AI can speak next</small></span><input id="smartRouting" type="checkbox" checked></label>
         <label class="switch-row"><span><strong>Screenshots</strong><small>Save verified AI replies</small></span><input id="captureScreenshots" type="checkbox"></label>
+        <label class="switch-row"><span><strong>Loop Guard in Full Auto</strong><small>Pause runaway AI cycles</small></span><input id="loopGuardEnabled" type="checkbox" checked></label>
+        <label class="switch-row"><span><strong>Loop Guard in Interactive</strong><small>Optional safety boundary</small></span><input id="loopGuardInteractive" type="checkbox"></label>
+        <label>Maximum autonomous hops
+          <input id="loopGuardMaxHops" type="number" min="0" value="20">
+          <small>0 = disabled</small>
+        </label>
+        <label>Same participant streak
+          <input id="loopGuardMaxSameSpeaker" type="number" min="0" value="3">
+          <small>0 = disabled</small>
+        </label>
+        <label>Same route streak
+          <input id="loopGuardMaxSameRoute" type="number" min="0" value="6">
+          <small>0 = disabled</small>
+        </label>
         <button id="clearTranscript" class="wide-quiet-button" type="button">Clear transcript</button>
         <button id="newMeeting" class="wide-quiet-button" type="button">New meeting</button>
       </div>

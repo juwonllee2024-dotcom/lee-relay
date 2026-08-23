@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Lee Relay</title>
+  <link rel="stylesheet" href="popup.css" />
+</head>
+<body>
+  <main class="app-shell">
+    <header class="topbar">
+      <div class="brand">
+        <div class="brand-mark" aria-hidden="true">
+          <span></span><span></span>
+        </div>
+        <div>
+          <h1>LEE RELAY</h1>
+          <p>AI conversations, automated.</p>
+        </div>
+      </div>
+      <div class="header-actions">
+        <button id="refreshTabs" class="icon-button" type="button" title="열린 AI 탭 새로고침" aria-label="열린 AI 탭 새로고침">↻</button>
+        <span id="stateBadge" class="status-pill stopped"><i></i><span>READY</span></span>
+      </div>
+    </header>
+
+    <section class="relay-stage" aria-label="AI relay setup">
+      <article class="ai-card" data-slot="a">
+        <div class="card-eyebrow">AI 1</div>
+        <div class="provider-row">
+          <div id="providerIconA" class="provider-icon neutral">AI</div>
+          <div class="provider-copy">
+            <strong id="providerNameA">Choose AI</strong>
+            <span id="providerMetaA">Select an open tab</span>
+          </div>
+        </div>
+        <div class="select-wrap">
+          <select id="tabA" aria-label="AI 1 탭 선택"></select>
+          <span class="select-chevron">⌄</span>
+        </div>
+      </article>
+
+      <div id="relayLink" class="relay-link" aria-hidden="true">
+        <span class="relay-dot left"></span>
+        <span class="relay-line"></span>
+        <span class="relay-glyph">↔</span>
+        <span class="relay-line"></span>
+        <span class="relay-dot right"></span>
+      </div>
+
+      <article class="ai-card" data-slot="b">
+        <div class="card-eyebrow">AI 2</div>
+        <div class="provider-row">
+          <div id="providerIconB" class="provider-icon neutral">AI</div>
+          <div class="provider-copy">
+            <strong id="providerNameB">Choose AI</strong>
+            <span id="providerMetaB">Select an open tab</span>
+          </div>
+        </div>
+        <div class="select-wrap">
+          <select id="tabB" aria-label="AI 2 탭 선택"></select>
+          <span class="select-chevron">⌄</span>
+        </div>
+      </article>
+    </section>
+
+    <section class="starter-section">
+      <div class="section-label-row">
+        <div>
+          <span class="section-kicker">FIRST MOVE</span>
+          <h2>Who starts?</h2>
+        </div>
+        <span class="section-hint">첫 메시지를 받을 AI</span>
+      </div>
+      <input id="firstSpeaker" type="hidden" value="a" />
+      <div class="starter-switch" role="group" aria-label="먼저 말할 AI 선택">
+        <button id="starterA" class="starter-button selected" type="button" data-speaker="a">
+          <span class="starter-index">01</span>
+          <span class="starter-name">AI 1</span>
+        </button>
+        <button id="starterB" class="starter-button" type="button" data-speaker="b">
+          <span class="starter-index">02</span>
+          <span class="starter-name">AI 2</span>
+        </button>
+      </div>
+    </section>
+
+    <section class="prompt-section">
+      <div class="section-label-row compact">
+        <div>
+          <span class="section-kicker">STARTING PROMPT</span>
+          <h2>Set the conversation in motion</h2>
+        </div>
+      </div>
+      <div class="prompt-box">
+        <textarea id="seed" rows="4" placeholder="예: 서로의 장단점을 솔직하게 토론하고, 매 턴마다 상대에게 다음 질문을 하나씩 해."></textarea>
+        <span class="prompt-note">비워두면 먼저 말할 AI의 최신 답변부터 시작</span>
+      </div>
+    </section>
+
+    <details id="advancedPanel" class="advanced-panel">
+      <summary>
+        <span class="summary-icon">⚙</span>
+        <span class="summary-copy">
+          <strong>Advanced settings</strong>
+          <small>턴, 딜레이, 스크린샷</small>
+        </span>
+        <span class="summary-chevron">⌄</span>
+      </summary>
+      <div class="advanced-content">
+        <div class="advanced-grid">
+          <label class="field">
+            <span>Max turns</span>
+            <input id="maxTurns" type="number" min="0" max="200" value="20" />
+            <small>0 = unlimited</small>
+          </label>
+          <label class="field">
+            <span>Delay</span>
+            <div class="unit-input">
+              <input id="delaySeconds" type="number" min="3" max="60" value="4" />
+              <span>sec</span>
+            </div>
+            <small>minimum 3 sec</small>
+          </label>
+        </div>
+
+        <label class="toggle-row" for="captureScreenshots">
+          <span class="toggle-copy">
+            <strong>Save response screenshots</strong>
+            <small>AI 답변이 끝날 때 PNG로 저장</small>
+          </span>
+          <span class="switch-control">
+            <input id="captureScreenshots" type="checkbox" />
+            <span class="switch-track"><span class="switch-thumb"></span></span>
+          </span>
+        </label>
+      </div>
+    </details>
+
+    <section class="run-panel">
+      <div class="run-status">
+        <div id="status" class="status-copy">Checking AI tabs…</div>
+        <div id="event" class="event-copy"></div>
+      </div>
+      <div class="run-actions">
+        <button id="stop" class="stop-button" type="button" disabled>Stop</button>
+        <button id="start" class="launch-button" type="button">
+          <span class="launch-icon">▶</span>
+          <span class="launch-copy">
+            <strong>START RELAY</strong>
+            <small>Connect selected AIs</small>
+          </span>
+          <span class="launch-arrow">→</span>
+        </button>
+      </div>
+    </section>
+  </main>
+  <script src="popup.js"></script>
+</body>
+</html>
