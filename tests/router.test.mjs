@@ -55,3 +55,11 @@ test('mere historical mention is ambiguous and falls back to round robin', () =>
   assert.equal(detectExplicitAddressee('Claude mentioned this earlier and I agree.', m.participants), null);
   assert.equal(selectNextSpeaker(m, 'Claude mentioned this earlier and I agree.', a.id).id, b.id);
 });
+
+test('leading @AI mention selects the requested participant and rejects self-loop', () => {
+  const m = meeting3();
+  const [a,,c] = m.participants;
+  assert.equal(selectNextSpeaker(m, '@Gemini: analyze the hook', a.id).id, c.id);
+  assert.equal(selectNextSpeaker(m, '@ChatGPT: compare this', c.id).id, a.id);
+  assert.equal(selectNextSpeaker(m, '@Gemini: continue', c.id).id, a.id);
+});

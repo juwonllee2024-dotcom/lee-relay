@@ -1,3 +1,5 @@
+import { resolveMentionDirective } from './mention-router.mjs';
+
 function connectedParticipants(meeting) {
   return (meeting?.participants || []).filter((p) => Number.isInteger(p.tabId) && p.connectionState === 'READY');
 }
@@ -63,6 +65,8 @@ export function detectExplicitAddressee(text = '', participants = []) {
 
 export function selectNextSpeaker(meeting, latestText = '', currentParticipantId = null) {
   if (!meeting) return null;
+  const mention = resolveMentionDirective(latestText, meeting.participants || [], currentParticipantId);
+  if (mention.target) return mention.target;
   if (meeting.routingMode === 'smart' && meeting.settings?.smartRouting !== false) {
     const explicit = detectExplicitAddressee(latestText, meeting.participants || []);
     if (explicit) return explicit;
