@@ -3,6 +3,9 @@ import assert from 'node:assert/strict';
 import {
   formatMeetingJson,
   formatMeetingMarkdown,
+  formatMeetingText,
+  formatRunReportMarkdown,
+  formatRunReportText,
   safeExportFilename,
 } from '../transcript-export.mjs';
 
@@ -63,4 +66,20 @@ test('JSON export is portable and excludes tab bindings, URLs, and activity logs
 test('export filename is safe for common desktop filesystems', () => {
   assert.equal(safeExportFilename('Release / AI: sync?', 'md'), 'release-ai-sync.md');
   assert.equal(safeExportFilename('   ', 'json'), 'lee-relay-meeting.json');
+});
+
+test('TXT and report exports preserve phases, scorecards, decisions, and actions', () => {
+  const report = {
+    title: 'Channel review',
+    runId: 'run-1',
+    summary: 'A concise result.',
+    phaseResults: [{ name: 'Concept', turns: [{ speaker: 'Gemini', text: 'Evidence' }] }],
+    scorecard: [{ axis: 'Concept', score: 4, evidence: ['Evidence'] }],
+    decisions: ['Keep the hook'],
+    actionItems: ['Test three openings'],
+  };
+  assert.match(formatRunReportMarkdown(report), /## 9-axis Scorecard/);
+  assert.match(formatRunReportMarkdown(report), /Keep the hook/);
+  assert.match(formatRunReportText(report), /Concept: 4\/5/);
+  assert.match(formatMeetingText({ ...meeting, title: 'Room' }), /ChatGPT/);
 });
