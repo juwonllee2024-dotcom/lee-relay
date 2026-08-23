@@ -42,8 +42,11 @@
 
     <section class="meeting-section">
       <div class="section-heading transcript-heading">
-        <span class="eyebrow">MEETING</span>
-        <span id="turnCounter" class="count-label">0 turns</span>
+        <div><span class="eyebrow">MEETING</span><span id="turnCounter" class="count-label">0 turns</span></div>
+        <div class="transcript-actions" aria-label="Export meeting transcript">
+          <button id="exportMarkdown" class="export-button" type="button" title="Download a Markdown transcript">MD</button>
+          <button id="exportJson" class="export-button" type="button" title="Download a JSON transcript">JSON</button>
+        </div>
       </div>
       <div id="transcript" class="transcript" aria-live="polite">
         <div class="empty-state">
@@ -95,6 +98,6 @@
       <div id="activityLog" class="activity-log"></div>
     </details>
   </main>
-  <script src="sidepanel.js"></script>
+  <script type="module" src="sidepanel.js"></script>
 </body>
 </html>

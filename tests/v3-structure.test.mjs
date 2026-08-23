@@ -40,7 +40,7 @@ test('transaction-scoped response events carry identity', () => {
 
 test('v3 manifest uses side panel as primary UI', () => {
   const manifest = JSON.parse(read('manifest.json'));
-  assert.equal(manifest.version, '3.0.3');
+  assert.equal(manifest.version, '3.0.4');
   assert.ok(manifest.permissions.includes('sidePanel'));
   assert.equal(manifest.side_panel?.default_path, 'sidepanel.html');
   assert.ok(!manifest.action?.default_popup);
@@ -60,6 +60,17 @@ test('side panel contains meeting room controls and recovery actions', () => {
   for (const id of ['meetingStatus','participants','addParticipant','transcript','composer','pauseMeeting','endMeeting','meetingControls','activityPanel','retryTransaction','skipParticipant','reconnectParticipant']) {
     assert.match(html, new RegExp(`id="${id}"`), id);
   }
+});
+
+test('side panel exposes local Markdown and JSON transcript exports', () => {
+  const html = read('sidepanel.html');
+  assert.match(html, /id="exportMarkdown"/);
+  assert.match(html, /id="exportJson"/);
+  assert.match(html, /script type="module" src="sidepanel\.js"/);
+  const source = read('sidepanel.js');
+  assert.match(source, /formatMeetingMarkdown/);
+  assert.match(source, /formatMeetingJson/);
+  assert.match(source, /URL\.createObjectURL/);
 });
 
 test('meeting start requires two participants that actually reattached successfully', () => {

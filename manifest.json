@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "Lee Relay — AI Meeting Room",
-  "version": "3.0.3",
-  "description": "Let ChatGPT, Claude, Gemini, and Copilot discuss one topic in a verified Chrome Side Panel.",
+  "version": "3.0.4",
+  "description": "Coordinate ChatGPT, Claude, Gemini, and Copilot in one verified Side Panel; export the meeting locally.",
   "minimum_chrome_version": "120",
   "permissions": [
     "tabs",

@@ -1,3 +1,5 @@
+import { formatMeetingJson, formatMeetingMarkdown, safeExportFilename } from './transcript-export.mjs';
+
 const $ = (id) => document.getElementById(id);
 let meeting = null;
 let supportedTabs = [];
@@ -5,7 +7,7 @@ let titleSaveTimer = null;
 
 const els = {
   meetingTitle: $('meetingTitle'), meetingStatus: $('meetingStatus'), participantCount: $('participantCount'), participants: $('participants'),
-  addParticipant: $('addParticipant'), refreshTabs: $('refreshTabs'), transcript: $('transcript'), turnCounter: $('turnCounter'), composer: $('composer'),
+  addParticipant: $('addParticipant'), refreshTabs: $('refreshTabs'), transcript: $('transcript'), turnCounter: $('turnCounter'), exportMarkdown: $('exportMarkdown'), exportJson: $('exportJson'), composer: $('composer'),
   sendUserMessage: $('sendUserMessage'), startMeeting: $('startMeeting'), pauseMeeting: $('pauseMeeting'), endMeeting: $('endMeeting'), uiNotice: $('uiNotice'),
   attentionStrip: $('attentionStrip'), attentionMessage: $('attentionMessage'), retryTransaction: $('retryTransaction'), skipParticipant: $('skipParticipant'), reconnectParticipant: $('reconnectParticipant'),
   maxTurns: $('maxTurns'), delaySeconds: $('delaySeconds'), retryLimit: $('retryLimit'), responseTimeout: $('responseTimeout'), smartRouting: $('smartRouting'), captureScreenshots: $('captureScreenshots'),
@@ -140,6 +142,9 @@ function renderControls() {
   els.pauseMeeting.disabled = !['LIVE','PAUSED'].includes(status);
   els.pauseMeeting.textContent = status === 'PAUSED' ? 'Resume' : 'Pause';
   els.endMeeting.disabled = status === 'FINISHED' || status === 'READY';
+  const hasTranscript = Boolean(meeting.transcript?.length);
+  els.exportMarkdown.disabled = !hasTranscript;
+  els.exportJson.disabled = !hasTranscript;
 }
 
 function render() {
@@ -187,8 +192,36 @@ async function sendComposer() {
     els.composer.value = ''; render();
   } catch (e) { notice(e.message, true); }
 }
+
+function downloadText(filename, content, mimeType) {
+  const url = URL.createObjectURL(new Blob([content], { type: `${mimeType};charset=utf-8` }));
+  const anchor = document.createElement('a');
+  anchor.href = url;
+  anchor.download = filename;
+  anchor.click();
+  setTimeout(() => URL.revokeObjectURL(url), 0);
+}
+
+function exportTranscript(format) {
+  if (!meeting?.transcript?.length) {
+    notice('No transcript to export yet.');
+    return;
+  }
+  if (format === 'markdown') {
+    const filename = safeExportFilename(meeting.title, 'md');
+    downloadText(filename, formatMeetingMarkdown(meeting), 'text/markdown');
+    notice(`Saved ${filename}.`);
+    return;
+  }
+  const filename = safeExportFilename(meeting.title, 'json');
+  downloadText(filename, formatMeetingJson(meeting), 'application/json');
+  notice(`Saved ${filename}.`);
+}
+
 els.sendUserMessage.addEventListener('click', sendComposer);
 els.composer.addEventListener('keydown', (e) => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); sendComposer(); } });
+els.exportMarkdown.addEventListener('click', () => exportTranscript('markdown'));
+els.exportJson.addEventListener('click', () => exportTranscript('json'));
 
 els.retryTransaction.addEventListener('click', async () => { try { await call('RETRY_TRANSACTION'); render(); } catch (e) { notice(e.message, true); } });
 els.skipParticipant.addEventListener('click', async () => { try { await call('SKIP_PARTICIPANT'); render(); } catch (e) { notice(e.message, true); } });

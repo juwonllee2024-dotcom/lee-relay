@@ -120,6 +120,7 @@ Most multi-agent tools orchestrate model **APIs**. Lee Relay orchestrates the **
 - **🧠 Smart speaker routing** — round-robin by default; explicit participant addressing can route the next turn.
 - **👤 Human in the loop** — type directly into the shared room at any point.
 - **📜 Master transcript** — Lee Relay keeps a meeting-level conversation history independent of any one provider tab.
+- **📦 Portable meeting record** — download the finished room as Markdown for reading or JSON for tooling, without live tab bindings.
 - **✅ Verified delivery** — clicking a Send button is *not* enough to mark a turn delivered.
 - **🔄 Recovery engine** — late delivery checks, bounded retries, page re-attachment, and watchdog recovery.
 - **🚨 No silent fake-LIVE state** — exhausted recovery becomes `NEEDS ATTENTION` with Retry / Skip / Reconnect controls.
@@ -200,6 +201,14 @@ Lee Relay automates the web pages you explicitly connect. Prompts and responses 
 5. Press **Start Meeting**.
 6. Watch the Side Panel show each participant's state and the shared transcript.
 7. Type into **Say something to the room…** whenever you want to intervene.
+
+### Save the result
+
+When the room has at least one transcript entry, click **MD** or **JSON** beside
+the meeting heading. Markdown is the human-readable meeting record; JSON keeps
+the same turns and verification statuses for scripts or later analysis. Exports
+are created locally and omit live tab IDs, provider URLs, transaction IDs, and
+the activity log.
 
 ### Smart routing
 

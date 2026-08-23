@@ -11,7 +11,6 @@ The roadmap prioritizes reliability before feature count.
 
 ## Meetings
 
-- Export transcripts to Markdown and JSON.
 - Participant roles such as critic, researcher, engineer, moderator, and summarizer.
 - Configurable meeting goals and finish conditions.
 - Optional approval-before-send mode.
