@@ -16,6 +16,19 @@
       <div id="meetingStatus" class="status-badge" data-status="READY">READY</div>
     </header>
 
+    <section class="workspace-strip" aria-label="Workspace">
+      <div class="workspace-room">
+        <span class="eyebrow">ROOM</span>
+        <select id="roomSelect" class="workspace-select" aria-label="Saved Room"></select>
+        <button id="createRoom" class="workspace-new" type="button">＋ New</button>
+      </div>
+      <div class="workspace-playbook">
+        <span class="eyebrow">PLAYBOOK</span>
+        <select id="playbookPicker" class="workspace-select" aria-label="Active Playbook"></select>
+        <small id="playbookHint">Freeform</small>
+      </div>
+    </section>
+
     <section class="participants-section">
       <div class="section-heading">
         <div>
@@ -46,6 +59,9 @@
         <div class="transcript-actions" aria-label="Export meeting transcript">
           <button id="exportMarkdown" class="export-button" type="button" title="Download a Markdown transcript">MD</button>
           <button id="exportJson" class="export-button" type="button" title="Download a JSON transcript">JSON</button>
+          <button id="exportText" class="export-button" type="button" title="Download a text transcript">TXT</button>
+          <button id="exportReportMarkdown" class="export-button" type="button" title="Download the Run report as Markdown">REPORT</button>
+          <button id="exportReportText" class="export-button" type="button" title="Download the Run report as text">R-TXT</button>
         </div>
       </div>
       <div id="transcript" class="transcript" aria-live="polite">
@@ -81,6 +97,14 @@
       <div class="drawer-body controls-grid">
         <label>Maximum AI turns
           <input id="maxTurns" type="number" min="0" value="20">
+          <small>0 = unlimited</small>
+        </label>
+        <label>Run time limit
+          <div class="inline-field"><input id="maxDurationMinutes" type="number" min="0" value="30"><span>min</span></div>
+          <small>0 = unlimited</small>
+        </label>
+        <label>Run handoff limit
+          <input id="maxHops" type="number" min="0" value="20">
           <small>0 = unlimited</small>
         </label>
         <label>Delay between turns

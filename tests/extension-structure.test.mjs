@@ -65,7 +65,7 @@ test('content polling caches shadow roots instead of rescanning for every select
 test('all mutating meeting events are serialized through one queue', () => {
   const source = read('background.js');
   assert.match(source, /let eventQueue = Promise\.resolve\(\)/);
-  assert.match(source, /const readOnly = new Set\(\['GET_MEETING_STATE','LIST_SUPPORTED_TABS'\]\)/);
+  assert.match(source, /const readOnly = new Set\(\['GET_MEETING_STATE','GET_WORKSPACE_STATE','LIST_ROOMS','GET_PLAYBOOKS','LIST_SUPPORTED_TABS'\]\)/);
   assert.match(source, /enqueue\(\(\) => handleCommand\(message, sender\)\)/);
 });
 

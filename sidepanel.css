@@ -31,6 +31,14 @@ button { cursor: pointer; }
 .status-badge[data-status="NEEDS_ATTENTION"] { color: var(--warn); border-color: color-mix(in srgb, var(--warn) 38%, transparent); }
 .status-badge[data-status="PAUSED"] { color: #d8c7ff; }
 .status-badge[data-status="FINISHED"] { color: var(--soft); }
+.workspace-strip { display: grid; gap: 9px; padding: 10px; border: 1px solid var(--border); border-radius: 13px; background: var(--panel); }
+.workspace-room, .workspace-playbook { display: grid; grid-template-columns: auto minmax(0,1fr) auto; align-items: center; gap: 8px; }
+.workspace-playbook { grid-template-columns: auto minmax(0,1fr) auto; }
+.workspace-select { min-width: 0; border: 1px solid var(--border); border-radius: 8px; padding: 6px 8px; background: #0b0e13; color: #d8dce4; font-size: 10px; outline: none; }
+.workspace-select:focus { border-color: var(--accent); }
+.workspace-new { border: 1px solid var(--border); border-radius: 8px; padding: 6px 8px; background: transparent; color: var(--muted); font-size: 10px; white-space: nowrap; }
+.workspace-new:hover { color: var(--text); border-color: var(--border-strong); }
+.workspace-playbook small { color: var(--soft); font-size: 9px; white-space: nowrap; }
 .section-heading { display: flex; justify-content: space-between; align-items: center; margin-bottom: 9px; }
 .eyebrow { font-size: 10px; font-weight: 800; letter-spacing: .14em; color: var(--muted); }
 .count-label { margin-left: 7px; color: var(--soft); font-size: 11px; }

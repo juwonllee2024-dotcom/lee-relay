@@ -1,7 +1,15 @@
-import { formatMeetingJson, formatMeetingMarkdown, safeExportFilename } from './transcript-export.mjs';
+import {
+  formatMeetingJson,
+  formatMeetingMarkdown,
+  formatMeetingText,
+  formatRunReportMarkdown,
+  formatRunReportText,
+  safeExportFilename,
+} from './transcript-export.mjs';
 
 const $ = (id) => document.getElementById(id);
 let meeting = null;
+let workspace = null;
 let supportedTabs = [];
 let titleSaveTimer = null;
 const SESSION_OPTIONS = [
@@ -9,15 +17,18 @@ const SESSION_OPTIONS = [
   ['channel-9-axis', '9-axis Channel Analysis'],
   ['debate', 'Debate'],
   ['planning', 'Planning'],
+  ['final-summary', 'Final Summary'],
 ];
 
 const els = {
   meetingTitle: $('meetingTitle'), meetingStatus: $('meetingStatus'), participantCount: $('participantCount'), participants: $('participants'),
+  roomSelect: $('roomSelect'), createRoom: $('createRoom'), playbookPicker: $('playbookPicker'), playbookHint: $('playbookHint'),
   addParticipant: $('addParticipant'), refreshTabs: $('refreshTabs'), transcript: $('transcript'), turnCounter: $('turnCounter'), exportMarkdown: $('exportMarkdown'), exportJson: $('exportJson'), composer: $('composer'),
+  exportText: $('exportText'), exportReportMarkdown: $('exportReportMarkdown'), exportReportText: $('exportReportText'),
   interactionMode: $('interactionMode'), interactiveMode: $('interactiveMode'), autonomousMode: $('autonomousMode'), joinConversation: $('joinConversation'), modeHint: $('modeHint'),
   sendUserMessage: $('sendUserMessage'), startMeeting: $('startMeeting'), pauseMeeting: $('pauseMeeting'), endMeeting: $('endMeeting'), uiNotice: $('uiNotice'),
   attentionStrip: $('attentionStrip'), attentionMessage: $('attentionMessage'), retryTransaction: $('retryTransaction'), skipParticipant: $('skipParticipant'), reconnectParticipant: $('reconnectParticipant'),
-  maxTurns: $('maxTurns'), delaySeconds: $('delaySeconds'), retryLimit: $('retryLimit'), responseTimeout: $('responseTimeout'), smartRouting: $('smartRouting'), captureScreenshots: $('captureScreenshots'),
+  maxTurns: $('maxTurns'), maxDurationMinutes: $('maxDurationMinutes'), maxHops: $('maxHops'), delaySeconds: $('delaySeconds'), retryLimit: $('retryLimit'), responseTimeout: $('responseTimeout'), smartRouting: $('smartRouting'), captureScreenshots: $('captureScreenshots'),
   sessionTemplate: $('sessionTemplate'), sessionPhaseHint: $('sessionPhaseHint'), loopGuardEnabled: $('loopGuardEnabled'), loopGuardInteractive: $('loopGuardInteractive'),
   loopGuardMaxHops: $('loopGuardMaxHops'), loopGuardMaxSameSpeaker: $('loopGuardMaxSameSpeaker'), loopGuardMaxSameRoute: $('loopGuardMaxSameRoute'),
   clearTranscript: $('clearTranscript'), newMeeting: $('newMeeting'), activityCount: $('activityCount'), activityLog: $('activityLog'),
@@ -27,6 +38,7 @@ async function call(type, payload = {}) {
   const result = await chrome.runtime.sendMessage({ type, ...payload });
   if (!result?.ok) throw new Error(result?.error || 'Lee Relay command failed.');
   if (result.meeting) meeting = result.meeting;
+  if (result.workspace) workspace = result.workspace;
   return result;
 }
 
@@ -42,6 +54,30 @@ function timeLabel(ms) {
 
 function providerLabel(p) {
   return { chatgpt: 'ChatGPT', claude: 'Claude', gemini: 'Gemini', copilot: 'Copilot' }[p] || 'Unbound AI';
+}
+
+function renderWorkspace() {
+  if (!workspace || !els.roomSelect) return;
+  els.roomSelect.replaceChildren();
+  for (const room of workspace.rooms || []) {
+    const option = document.createElement('option');
+    option.value = room.id;
+    option.textContent = room.title || 'Untitled room';
+    option.selected = room.id === workspace.activeRoomId;
+    els.roomSelect.append(option);
+  }
+  if (els.playbookPicker) {
+    els.playbookPicker.replaceChildren();
+    for (const [value, label] of SESSION_OPTIONS) {
+      const option = document.createElement('option');
+      option.value = value;
+      option.textContent = label;
+      option.selected = value === (meeting?.playbookId || meeting?.session?.templateId || 'freeform');
+      els.playbookPicker.append(option);
+    }
+    const active = SESSION_OPTIONS.find(([value]) => value === els.playbookPicker.value);
+    if (els.playbookHint) els.playbookHint.textContent = active?.[1] || 'Freeform';
+  }
 }
 
 function activeParticipantId() {
@@ -158,6 +194,8 @@ function renderSettings() {
   const session = meeting.session || {};
   const coordinationEditable = meeting.status === 'READY' || (meeting.status === 'PAUSED' && !meeting.activeTransaction);
   els.maxTurns.value = s.maxTurns ?? 20;
+  els.maxDurationMinutes.value = Math.round((s.maxDurationMs ?? 1800000) / 60000);
+  els.maxHops.value = s.maxHops ?? 20;
   els.delaySeconds.value = ((s.minDelayMs ?? 4000) / 1000).toString();
   els.retryLimit.value = s.retryLimit ?? 3;
   els.responseTimeout.value = Math.round((s.responseTimeoutMs ?? 120000) / 1000);
@@ -179,7 +217,7 @@ function renderSettings() {
   els.loopGuardMaxHops.value = s.loopGuardMaxHops ?? 20;
   els.loopGuardMaxSameSpeaker.value = s.loopGuardMaxSameSpeaker ?? 3;
   els.loopGuardMaxSameRoute.value = s.loopGuardMaxSameRoute ?? 6;
-  for (const el of [els.sessionTemplate, els.loopGuardEnabled, els.loopGuardInteractive, els.loopGuardMaxHops, els.loopGuardMaxSameSpeaker, els.loopGuardMaxSameRoute]) {
+  for (const el of [els.maxDurationMinutes, els.maxHops, els.sessionTemplate, els.loopGuardEnabled, els.loopGuardInteractive, els.loopGuardMaxHops, els.loopGuardMaxSameSpeaker, els.loopGuardMaxSameRoute]) {
     el.disabled = !coordinationEditable;
   }
 }
@@ -209,8 +247,8 @@ function renderControls() {
   els.interactiveMode.disabled = !canChangeMode;
   els.autonomousMode.disabled = !canChangeMode;
   els.modeHint.textContent = autonomous
-    ? (status === 'LIVE' ? 'Full Auto is observing. Pause to join the conversation.' : 'Full Auto: AI participants continue without user context.')
-    : 'Interactive: your messages are added to the room.';
+    ? (status === 'LIVE' ? 'Full Auto is observing. AI can hand off with @AI; pause to join.' : 'Full Auto: AI participants continue without user context.')
+    : 'Interactive: your messages are added to the room. Use @Gemini or @Copilot to direct a turn.';
   els.composer.closest('.composer-section').dataset.observer = String(autonomous && status === 'LIVE');
   els.composer.disabled = autonomous && status === 'LIVE';
   els.sendUserMessage.disabled = autonomous && status === 'LIVE';
@@ -224,11 +262,15 @@ function renderControls() {
   const hasTranscript = Boolean(meeting.transcript?.length);
   els.exportMarkdown.disabled = !hasTranscript;
   els.exportJson.disabled = !hasTranscript;
+  els.exportText.disabled = !hasTranscript;
+  const hasReport = Boolean(meeting.artifact);
+  els.exportReportMarkdown.disabled = !hasReport;
+  els.exportReportText.disabled = !hasReport;
 }
 
 function render() {
   if (!meeting) return;
-  renderControls(); renderParticipants(); renderTranscript(); renderActivity(); renderSettings(); renderAttention();
+  renderWorkspace(); renderControls(); renderParticipants(); renderTranscript(); renderActivity(); renderSettings(); renderAttention();
 }
 
 async function refreshTabs(showNotice = true) {
@@ -238,13 +280,25 @@ async function refreshTabs(showNotice = true) {
 
 async function load() {
   try {
-    const [state, tabs] = await Promise.all([call('GET_MEETING_STATE'), call('LIST_SUPPORTED_TABS')]);
-    meeting = state.meeting; supportedTabs = tabs.tabs || []; render();
+    const [state, tabs] = await Promise.all([call('GET_WORKSPACE_STATE'), call('LIST_SUPPORTED_TABS')]);
+    meeting = state.meeting; workspace = state.workspace; supportedTabs = tabs.tabs || []; render();
   } catch (e) { notice(e.message, true); }
 }
 
 els.refreshTabs.addEventListener('click', async () => { await refreshTabs(); renderParticipants(); });
 els.addParticipant.addEventListener('click', async () => { try { await call('ADD_PARTICIPANT'); render(); } catch (e) { notice(e.message, true); } });
+els.roomSelect.addEventListener('change', async () => {
+  try { await call('SELECT_ROOM', { roomId: els.roomSelect.value }); await refreshTabs(false); render(); notice('Room loaded.'); }
+  catch (e) { notice(e.message, true); }
+});
+els.createRoom.addEventListener('click', async () => {
+  try { await call('CREATE_ROOM', { options: { title: 'New Room', playbookId: 'freeform' } }); await refreshTabs(false); render(); notice('New Room created. Connect AI tabs.'); }
+  catch (e) { notice(e.message, true); }
+});
+els.playbookPicker.addEventListener('change', async () => {
+  try { await call('UPDATE_PLAYBOOK', { playbookId: els.playbookPicker.value }); render(); notice('Playbook updated.'); }
+  catch (e) { notice(e.message, true); }
+});
 
 async function chooseInteractionMode(mode) {
   try { await call('SET_INTERACTION_MODE', { mode }); render(); }
@@ -312,8 +366,26 @@ function exportTranscript(format) {
     notice(`Saved ${filename}.`);
     return;
   }
+  if (format === 'text') {
+    const filename = safeExportFilename(meeting.title, 'txt');
+    downloadText(filename, formatMeetingText(meeting), 'text/plain');
+    notice(`Saved ${filename}.`);
+    return;
+  }
   const filename = safeExportFilename(meeting.title, 'json');
   downloadText(filename, formatMeetingJson(meeting), 'application/json');
+  notice(`Saved ${filename}.`);
+}
+
+function exportReport(format) {
+  if (!meeting?.artifact) {
+    notice('Run a meeting before exporting its report.');
+    return;
+  }
+  const text = format === 'markdown' ? formatRunReportMarkdown(meeting.artifact) : formatRunReportText(meeting.artifact);
+  const extension = format === 'markdown' ? 'md' : 'txt';
+  const filename = safeExportFilename(`${meeting.title}-report`, extension);
+  downloadText(filename, text, format === 'markdown' ? 'text/markdown' : 'text/plain');
   notice(`Saved ${filename}.`);
 }
 
@@ -321,6 +393,9 @@ els.sendUserMessage.addEventListener('click', sendComposer);
 els.composer.addEventListener('keydown', (e) => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); sendComposer(); } });
 els.exportMarkdown.addEventListener('click', () => exportTranscript('markdown'));
 els.exportJson.addEventListener('click', () => exportTranscript('json'));
+els.exportText.addEventListener('click', () => exportTranscript('text'));
+els.exportReportMarkdown.addEventListener('click', () => exportReport('markdown'));
+els.exportReportText.addEventListener('click', () => exportReport('text'));
 
 els.retryTransaction.addEventListener('click', async () => { try { await call('RETRY_TRANSACTION'); render(); } catch (e) { notice(e.message, true); } });
 els.skipParticipant.addEventListener('click', async () => { try { await call('SKIP_PARTICIPANT'); render(); } catch (e) { notice(e.message, true); } });
@@ -331,11 +406,12 @@ async function updateSettings() {
     await call('UPDATE_MEETING_SETTINGS', { settings: {
       maxTurns: Number(els.maxTurns.value), minDelayMs: Number(els.delaySeconds.value) * 1000,
       retryLimit: Number(els.retryLimit.value), responseTimeoutMs: Number(els.responseTimeout.value) * 1000,
+      maxDurationMs: Number(els.maxDurationMinutes.value) * 60000, maxHops: Number(els.maxHops.value),
       smartRouting: els.smartRouting.checked, captureScreenshots: els.captureScreenshots.checked,
     } }); render();
   } catch (e) { notice(e.message, true); }
 }
-for (const el of [els.maxTurns,els.delaySeconds,els.retryLimit,els.responseTimeout,els.smartRouting]) el.addEventListener('change', updateSettings);
+for (const el of [els.maxTurns,els.maxDurationMinutes,els.maxHops,els.delaySeconds,els.retryLimit,els.responseTimeout,els.smartRouting]) el.addEventListener('change', updateSettings);
 els.captureScreenshots.addEventListener('change', async () => {
   updateSettings();
 });
@@ -377,7 +453,7 @@ els.meetingTitle.addEventListener('input', () => {
 });
 
 chrome.runtime.onMessage.addListener((message) => {
-  if (message?.type === 'MEETING_STATE_CHANGED' && message.meeting) { meeting = message.meeting; render(); }
+  if (message?.type === 'MEETING_STATE_CHANGED' && message.meeting) { meeting = message.meeting; workspace = message.workspace || workspace; render(); }
 });
 
 load();

@@ -45,3 +45,15 @@ test('v4 side panel exposes role, session, and Loop Guard controls', async () =>
   assert.match(js, /UPDATE_SESSION_TEMPLATE/);
   assert.match(js, /UPDATE_LOOP_GUARD/);
 });
+
+test('v4.1 side panel keeps the primary Room → Playbook → Run path compact', async () => {
+  const html = await read('sidepanel.html');
+  const js = await read('sidepanel.js');
+  for (const id of ['roomSelect', 'createRoom', 'playbookPicker', 'playbookHint', 'exportText', 'exportReportMarkdown', 'exportReportText', 'maxDurationMinutes', 'maxHops']) {
+    assert.match(html, new RegExp(`id="${id}"`), id);
+  }
+  for (const marker of ['GET_WORKSPACE_STATE', 'SELECT_ROOM', 'CREATE_ROOM', 'UPDATE_PLAYBOOK', 'formatRunReportMarkdown', 'formatRunReportText', 'maxDurationMs']) {
+    assert.match(js, new RegExp(marker.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')), marker);
+  }
+  assert.match(html, /id="meetingControls"[\s\S]*<details/);
+});
