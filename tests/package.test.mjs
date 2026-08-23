@@ -74,7 +74,7 @@ test('rejects development files and version drift', async () => {
   const archive = buildArchiveBuffer(root);
 
   assert.throws(
-    () => verifyArchiveBuffer(archive, '3.0.3'),
+    () => verifyArchiveBuffer(archive, '4.0.1'),
     /manifest version mismatch/,
   );
 

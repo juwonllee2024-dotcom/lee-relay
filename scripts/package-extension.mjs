@@ -22,6 +22,7 @@ export const PACKAGE_FILES = [
   'sidepanel.css',
   'sidepanel.html',
   'sidepanel.js',
+  'transcript-export.mjs',
   'transaction-engine.mjs',
   'README.md',
   'LICENSE',

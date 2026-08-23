@@ -62,6 +62,17 @@ test('side panel contains meeting room controls and recovery actions', () => {
   }
 });
 
+test('side panel exposes local Markdown and JSON transcript exports', () => {
+  const html = read('sidepanel.html');
+  assert.match(html, /id="exportMarkdown"/);
+  assert.match(html, /id="exportJson"/);
+  assert.match(html, /script type="module" src="sidepanel\.js"/);
+  const source = read('sidepanel.js');
+  assert.match(source, /formatMeetingMarkdown/);
+  assert.match(source, /formatMeetingJson/);
+  assert.match(source, /URL\.createObjectURL/);
+});
+
 test('meeting start requires two participants that actually reattached successfully', () => {
   const src = read('background.js');
   const fn = src.match(/async function startMeeting[\s\S]*?\n\}/)?.[0] || '';

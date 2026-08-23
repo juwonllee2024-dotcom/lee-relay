@@ -12,6 +12,14 @@
 - Interactive and Full Auto meeting modes.
 - Participant roles, session templates, coordination phases, and Loop Guard.
 - Background-tab response recovery with adaptive inline, compact, and context-file delivery.
+## 3.0.4 — 2026-08-23
+
+### Added
+
+- Export the complete Lee Relay meeting transcript to local Markdown or JSON.
+- Preserve turn numbers, participants, timestamps, and delivery/response verification statuses.
+- Sanitize exports so live tab IDs, provider URLs, transaction IDs, and activity logs never leave the extension.
+- Add a safe filename derived from the meeting title.
 
 ## 3.0.3
 

@@ -113,6 +113,20 @@ Participant cards also show states such as SENDING, VERIFYING, THINKING, RECEIVI
 ## Reliability and recovery
 
 A v3 turn is transaction-aware. Every provider event carries meeting, transaction, participant, and tab identity.
+- **💬 AI-to-AI conversation** — each participant receives shared meeting context and can respond to what another AI just said.
+- **🔁 Automatic handoffs** — Lee Relay moves the conversation between selected AI tabs instead of making you copy and paste.
+- **🌐 Browser-native** — runs as a Chrome Manifest V3 extension.
+- **🔑 No API keys required by Lee Relay** — it automates supported provider web UIs.
+- **🤝 Multi-AI meetings** — start with 2 participants and expand up to 6.
+- **📌 Persistent Side Panel** — switch between AI tabs without losing the control room.
+- **🧠 Smart speaker routing** — round-robin by default; explicit participant addressing can route the next turn.
+- **👤 Human in the loop** — type directly into the shared room at any point.
+- **📜 Master transcript** — Lee Relay keeps a meeting-level conversation history independent of any one provider tab.
+- **📦 Portable meeting record** — download the finished room as Markdown for reading or JSON for tooling, without live tab bindings.
+- **✅ Verified delivery** — clicking a Send button is *not* enough to mark a turn delivered.
+- **🔄 Recovery engine** — late delivery checks, bounded retries, page re-attachment, and watchdog recovery.
+- **🚨 No silent fake-LIVE state** — exhausted recovery becomes `NEEDS ATTENTION` with Retry / Skip / Reconnect controls.
+- **🧩 Provider-neutral design** — current adapters support ChatGPT, Claude, Gemini, and Copilot.
 
 Delivery confirmation uses multiple page signals. A matching outgoing USER message remains strong evidence; after Lee Relay verifies that the full prompt was actually present in the composer before Send, a cleared composer is also accepted so provider DOM selector gaps cannot trigger duplicate sends.
 
@@ -159,6 +173,16 @@ Lee Relay automates third-party AI web interfaces. ChatGPT, Claude, Gemini, and 
 - A primed composer that clears after Send is accepted as delivery evidence even when provider-specific message selectors miss the new turn.
 - Provider response text is sanitized before it enters the shared transcript, removing echoed relay scaffolding/prompt text while preserving the real AI answer.
 - Explicit **Retry** starts a fresh transaction; stale events from the previous ambiguous attempt cannot complete the new one.
+
+### Save the result
+
+When the room has at least one transcript entry, click **MD** or **JSON** beside
+the meeting heading. Markdown is the human-readable meeting record; JSON keeps
+the same turns and verification statuses for scripts or later analysis. Exports
+are created locally and omit live tab IDs, provider URLs, transaction IDs, and
+the activity log.
+
+### Smart routing
 
 ## v3.0.3 local hardening
 

@@ -66,6 +66,9 @@ button { cursor: pointer; }
 .recovery-actions button { border: 1px solid var(--border-strong); border-radius: 9px; background: rgba(255,255,255,.035); padding: 7px 5px; font-size: 10px; }
 .meeting-section { min-height: 200px; display: flex; flex-direction: column; }
 .transcript { min-height: 190px; max-height: 44vh; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; padding: 2px 2px 8px; scrollbar-width: thin; scrollbar-color: #252b36 transparent; }
+.transcript-actions { display: flex; gap: 5px; }
+.export-button { border: 1px solid var(--border); border-radius: 7px; padding: 5px 7px; background: var(--panel); color: var(--muted); font-size: 9px; font-weight: 800; letter-spacing: .04em; }
+.export-button:hover { color: var(--text); border-color: var(--border-strong); }
 .empty-state { min-height: 180px; display: grid; place-items: center; align-content: center; text-align: center; gap: 6px; color: var(--muted); padding: 20px; }
 .empty-state strong { color: #cfd4dc; font-size: 13px; }
 .empty-state span { max-width: 260px; font-size: 11px; line-height: 1.5; }
