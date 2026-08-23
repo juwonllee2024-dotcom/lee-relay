@@ -131,7 +131,7 @@ export function recordRunTurn(run, turn = {}, now = Date.now()) {
 
 export function runBudgetDecision(run, now = Date.now()) {
   const current = normalizeRun(run);
-  if (current.status !== 'RUNNING') return { blocked: true, reason: `Run is ${current.status.toLowerCase()}.`, state: current };
+  if (current.status !== 'RUNNING') return { blocked: false, reason: '', state: current };
   if (current.budget.maxDurationMs > 0 && now - current.startedAt >= current.budget.maxDurationMs) {
     return { blocked: true, reason: `Run Budget time limit stopped the run after ${current.budget.maxDurationMs} ms.`, state: { ...current, stopReason: 'max-duration' } };
   }

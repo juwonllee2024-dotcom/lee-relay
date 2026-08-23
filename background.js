@@ -38,6 +38,31 @@ import {
 } from './context-engine.mjs';
 import { createBackgroundTabController } from './background-tab-controller.mjs';
 import {
+  addRoom,
+  createRoom,
+  getActiveRoom,
+  migrateWorkspace,
+  normalizeWorkspace,
+  publicWorkspaceState,
+  removeRoom,
+  replaceActiveRoomMeeting,
+  selectRoom,
+  updateRoom,
+  durableWorkspaceState,
+} from './workspace-engine.mjs';
+import { getPlaybook, getPlaybooks } from './playbook-engine.mjs';
+import {
+  createRun,
+  finishRun,
+  normalizeRun,
+  pauseRun,
+  recordRunHandoff,
+  recordRunTurn,
+  runBudgetDecision,
+} from './run-engine.mjs';
+import { buildRunArtifact } from './report-engine.mjs';
+import { resolveMentionDirective } from './mention-router.mjs';
+import {
   createLoopGuardState,
   currentSessionPhase,
   loopGuardDecision,
@@ -51,6 +76,8 @@ import {
 
 const ACTIVE_RUNTIME_KEY = 'v4.0.0MeetingRuntime';
 const SAVED_MEETING_KEY = 'v4.0.0SavedMeeting';
+const WORKSPACE_KEY = 'v4.1Workspace';
+const ACTIVE_RUN_KEY = 'v4.1ActiveRun';
 const LEGACY_ACTIVE_RUNTIME_KEY = 'v3.0.8MeetingRuntime';
 const LEGACY_SAVED_MEETING_KEY = 'v3.0.8SavedMeeting';
 const UI_SETTINGS_KEY = 'v3UiSettings';
@@ -117,8 +144,39 @@ function sanitizeMeetingTranscript(meeting) {
   return changed ? { ...meeting, transcript } : meeting;
 }
 
+async function readWorkspace(fallbackMeeting = null) {
+  const local = await chrome.storage.local.get([WORKSPACE_KEY]);
+  return migrateWorkspace(local[WORKSPACE_KEY], fallbackMeeting, Date.now());
+}
+
+async function persistWorkspaceMeeting(meeting) {
+  const local = await chrome.storage.local.get([WORKSPACE_KEY]);
+  let workspace = migrateWorkspace(local[WORKSPACE_KEY], durableMeetingState(meeting), Date.now());
+  const active = getActiveRoom(workspace);
+  if (active?.meeting?.id !== meeting.id || Number(active?.meeting?.updatedAt) !== Number(meeting.updatedAt)) {
+    workspace = replaceActiveRoomMeeting(workspace, meeting);
+  }
+  const durable = durableWorkspaceState(workspace);
+  await chrome.storage.local.set({ [WORKSPACE_KEY]: durable });
+  return durable;
+}
+
+async function ensureWorkspaceForMeeting(meeting) {
+  const local = await chrome.storage.local.get([WORKSPACE_KEY]);
+  let workspace = migrateWorkspace(local[WORKSPACE_KEY], durableMeetingState(meeting), Date.now());
+  const active = getActiveRoom(workspace);
+  if (!active || active.meeting.id !== meeting.id || Number(active.meeting.updatedAt) !== Number(meeting.updatedAt)) {
+    workspace = replaceActiveRoomMeeting(workspace, meeting);
+  }
+  const durable = durableWorkspaceState(workspace);
+  if (!local[WORKSPACE_KEY] || JSON.stringify(local[WORKSPACE_KEY]) !== JSON.stringify(durable)) {
+    await chrome.storage.local.set({ [WORKSPACE_KEY]: durable });
+  }
+  return durable;
+}
+
 async function getMeeting() {
-  const session = await chrome.storage.session.get([ACTIVE_RUNTIME_KEY, LEGACY_ACTIVE_RUNTIME_KEY]);
+  const session = await chrome.storage.session.get([ACTIVE_RUNTIME_KEY, ACTIVE_RUN_KEY, LEGACY_ACTIVE_RUNTIME_KEY]);
   const activeStored = session[ACTIVE_RUNTIME_KEY] || session[LEGACY_ACTIVE_RUNTIME_KEY];
   if (activeStored) {
     const active = normalizeMeetingCoordination(sanitizeMeetingTranscript(activeStored));
@@ -127,12 +185,15 @@ async function getMeeting() {
       settings: { ...DEFAULT_MEETING_SETTINGS, ...(active.settings || {}) },
       interactionMode: normalizeInteractionMode(active.interactionMode),
       topicText: normalizeTopicText(active.topicText),
+      activeRun: active.activeRun || session[ACTIVE_RUN_KEY] || null,
     };
     if (!session[ACTIVE_RUNTIME_KEY]) await chrome.storage.session.set({ [ACTIVE_RUNTIME_KEY]: next });
+    await ensureWorkspaceForMeeting(next);
     return next;
   }
-  const local = await chrome.storage.local.get([SAVED_MEETING_KEY, LEGACY_SAVED_MEETING_KEY]);
-  const stored = local[SAVED_MEETING_KEY] || local[LEGACY_SAVED_MEETING_KEY];
+  const local = await chrome.storage.local.get([SAVED_MEETING_KEY, LEGACY_SAVED_MEETING_KEY, WORKSPACE_KEY]);
+  const storedWorkspace = local[WORKSPACE_KEY] ? normalizeWorkspace(local[WORKSPACE_KEY]) : null;
+  const stored = storedWorkspace ? getActiveRoom(storedWorkspace)?.meeting : (local[SAVED_MEETING_KEY] || local[LEGACY_SAVED_MEETING_KEY]);
   const restored = normalizeMeetingCoordination(sanitizeMeetingTranscript(stored || createMeeting()));
   const meeting = normalizeMeetingCoordination({
     ...restored,
@@ -141,17 +202,20 @@ async function getMeeting() {
     interactionMode: normalizeInteractionMode(restored.interactionMode),
     topicText: normalizeTopicText(restored.topicText),
     activeTransaction: null,
+    activeRun: restored.activeRun || null,
     participants: (restored.participants || []).map((p) => ({ ...p, tabId: null, url: '', connectionState: 'DISCONNECTED', turnState: 'WAITING' })),
   });
-  await chrome.storage.session.set({ [ACTIVE_RUNTIME_KEY]: meeting });
+  await chrome.storage.session.set({ [ACTIVE_RUNTIME_KEY]: meeting, [ACTIVE_RUN_KEY]: meeting.activeRun || null });
   if (!local[SAVED_MEETING_KEY] && local[LEGACY_SAVED_MEETING_KEY]) {
     await chrome.storage.local.set({ [SAVED_MEETING_KEY]: durableMeetingState(meeting) });
   }
+  await ensureWorkspaceForMeeting(meeting);
   return meeting;
 }
 
-async function broadcastMeeting(meeting) {
-  await chrome.runtime.sendMessage({ type: 'MEETING_STATE_CHANGED', meeting: publicMeetingState(meeting) }).catch(() => {});
+async function broadcastMeeting(meeting, workspace = null) {
+  const state = workspace || await readWorkspace(meeting);
+  await chrome.runtime.sendMessage({ type: 'MEETING_STATE_CHANGED', meeting: publicMeetingState(meeting), workspace: publicWorkspaceState(state) }).catch(() => {});
 }
 
 async function saveMeeting(meeting, { broadcast = true } = {}) {
@@ -160,13 +224,19 @@ async function saveMeeting(meeting, { broadcast = true } = {}) {
     updatedAt: Date.now(),
     settings: { ...DEFAULT_MEETING_SETTINGS, ...(meeting.settings || {}) },
   });
-  await chrome.storage.session.set({ [ACTIVE_RUNTIME_KEY]: next });
+  await chrome.storage.session.set({ [ACTIVE_RUNTIME_KEY]: next, [ACTIVE_RUN_KEY]: next.activeRun || null });
   await chrome.storage.local.set({ [SAVED_MEETING_KEY]: durableMeetingState(next) });
-  if (broadcast) await broadcastMeeting(next);
+  const workspace = await persistWorkspaceMeeting(next);
+  if (broadcast) await broadcastMeeting(next, workspace);
   return next;
 }
 
 async function newMeeting(options = {}) {
+  const current = await getMeeting();
+  if (current.status === 'LIVE') {
+    await backgroundTabController.releaseAll().catch(() => {});
+    await saveMeeting(setMeetingStatus({ ...current, activeTransaction: null }, 'PAUSED'), { broadcast: false });
+  }
   const meeting = createMeeting({
     title: options.title || 'New AI Meeting',
     interactionMode: options.interactionMode,
@@ -174,7 +244,16 @@ async function newMeeting(options = {}) {
     settings: options.settings || {},
     session: options.session || {},
     loopGuard: options.loopGuard || {},
+    playbookId: options.playbookId || options.session?.templateId || 'freeform',
   });
+  let workspace = await readWorkspace(current);
+  workspace = addRoom(workspace, createRoom({
+    title: meeting.title,
+    purpose: options.purpose,
+    playbookId: meeting.playbookId,
+    meeting,
+  }));
+  await chrome.storage.local.set({ [WORKSPACE_KEY]: durableWorkspaceState(workspace) });
   return saveMeeting(meeting);
 }
 
@@ -556,8 +635,52 @@ function loopGuardSettings(meeting) {
   };
 }
 
+function runBudgetSettings(meeting) {
+  return {
+    maxDurationMs: meeting.settings?.maxDurationMs,
+    maxTurns: meeting.settings?.maxTurns,
+    maxHops: meeting.settings?.maxHops ?? meeting.settings?.loopGuardMaxHops,
+  };
+}
+
+function runHistoryEntry(run, artifact) {
+  return {
+    id: run.id,
+    roomId: run.roomId,
+    playbookId: run.playbookId,
+    status: run.status,
+    startedAt: run.startedAt,
+    endedAt: run.endedAt,
+    stopReason: run.stopReason,
+    artifact,
+  };
+}
+
+function finishMeetingRun(meeting, reason = 'completed', status = 'FINISHED', now = Date.now()) {
+  if (!meeting.activeRun) return setMeetingStatus(meeting, status);
+  const run = finishRun(meeting.activeRun, reason, now);
+  const artifact = buildRunArtifact({ title: meeting.title, meeting, run, playbook: run.playbook, now });
+  const history = [...(meeting.runHistory || []).filter((item) => item.id !== run.id), runHistoryEntry(run, artifact)].slice(-20);
+  return setMeetingStatus({ ...meeting, activeRun: { ...run, artifact }, artifact, runHistory: history }, status);
+}
+
+function budgetStop(meeting, now = Date.now()) {
+  if (!meeting.activeRun) return { meeting, blocked: false, reason: '' };
+  const decision = runBudgetDecision(meeting.activeRun, now);
+  if (!decision.blocked) return { meeting, blocked: false, reason: '' };
+  const next = finishMeetingRun(meeting, decision.state.stopReason || decision.reason, 'PAUSED', now);
+  return { meeting: next, blocked: true, reason: decision.reason };
+}
+
 async function scheduleSpeaker(meeting, latestText, currentParticipantId = null, delayMs = null) {
   if (meeting.status !== 'LIVE' || meeting.activeTransaction) return null;
+  const budget = budgetStop(meeting);
+  if (budget.blocked) {
+    let stopped = withActivity(budget.meeting, budget.reason, { level: 'WARN', stage: 'RUN_BUDGET' });
+    await backgroundTabController.releaseAll().catch(() => {});
+    await saveMeeting(stopped);
+    return null;
+  }
   const target = selectNextSpeaker(meeting, latestText, currentParticipantId);
   if (!target) return null;
   let next = meeting;
@@ -572,8 +695,21 @@ async function scheduleSpeaker(meeting, latestText, currentParticipantId = null,
       await saveMeeting(next);
       return null;
     }
-    await saveMeeting(next);
   }
+  if (currentParticipantId && next.activeRun) {
+    const mention = resolveMentionDirective(latestText, meeting.participants || [], currentParticipantId);
+    const handoffReason = mention.target ? `Explicit @${mention.alias} handoff.` : 'Round-robin handoff.';
+    next = { ...next, activeRun: recordRunHandoff(next.activeRun, { fromParticipantId: currentParticipantId, toParticipantId: target.id, reason: handoffReason }) };
+    const runDecision = runBudgetDecision(next.activeRun);
+    if (runDecision.blocked) {
+      next = finishMeetingRun(next, runDecision.state.stopReason || runDecision.reason, 'PAUSED');
+      next = withActivity(next, runDecision.reason, { level: 'WARN', stage: 'RUN_BUDGET', participantId: target.id });
+      await backgroundTabController.releaseAll().catch(() => {});
+      await saveMeeting(next);
+      return null;
+    }
+  }
+  if (next !== meeting) await saveMeeting(next);
   const delay = delayMs == null ? Math.max(0, Number(meeting.settings.minDelayMs) || 0) : delayMs;
   setTimeout(() => enqueue(() => executeTurn(target.id)).catch(() => {}), delay);
   return target;
@@ -617,6 +753,13 @@ async function startMeeting(seedText = '', requestedMode = null) {
     ...meeting,
     session: startSession(meeting.session),
     loopGuard: createLoopGuardState(meeting.loopGuard),
+    playbookId: meeting.playbookId || meeting.session?.templateId || 'freeform',
+    activeRun: createRun({
+      roomId: meeting.id,
+      playbook: getPlaybook(meeting.playbookId || meeting.session?.templateId || 'freeform'),
+      budget: runBudgetSettings(meeting),
+    }),
+    artifact: null,
   };
   meeting = setMeetingStatus(meeting, 'LIVE');
   meeting = withActivity(meeting, interactionMode === 'autonomous' ? 'Full Auto meeting started.' : 'Meeting started.');
@@ -661,10 +804,30 @@ async function completeResponse(message, senderTabId) {
   meeting = { ...meeting, currentTurn: meeting.currentTurn + 1, activeTransaction: null };
   const previousSession = meeting.session;
   const nextSession = recordSessionTurn(previousSession);
-  meeting = { ...meeting, session: nextSession };
+  const currentPhase = currentSessionPhase(previousSession);
+  const nextRun = meeting.activeRun
+    ? recordRunTurn(meeting.activeRun, {
+      participantId: participant.id,
+      text: cleanResponseText,
+      data: { phaseId: meeting.activeRun.phaseId, phaseName: currentPhase?.name || '', speaker: participant.label, turnNumber: tx.turnNumber },
+    })
+    : null;
+  meeting = { ...meeting, session: nextSession, activeRun: nextRun };
+  const runDecision = nextRun ? runBudgetDecision(nextRun) : { blocked: false };
+  if (runDecision.blocked) {
+    meeting = finishMeetingRun(meeting, runDecision.state.stopReason || runDecision.reason, 'PAUSED');
+    meeting = withActivity(meeting, runDecision.reason, { level: 'WARN', stage: 'RUN_BUDGET', participantId: participant.id, transactionId: tx.transactionId });
+    await backgroundTabController.releaseAll().catch(() => {});
+    return saveMeeting(meeting);
+  }
   if (nextSession.status === 'COMPLETE') {
     meeting = withActivity(meeting, `Session complete ??${nextSession.templateId}.`, { stage: 'SESSION_COMPLETE' });
-    meeting = setMeetingStatus(meeting, 'FINISHED');
+    meeting = finishMeetingRun(meeting, 'session-complete', 'FINISHED');
+    return saveMeeting(meeting);
+  }
+  if (nextRun?.status === 'FINISHED') {
+    meeting = withActivity(meeting, `Run complete ??${nextRun.playbookId}.`, { stage: 'RUN_COMPLETE' });
+    meeting = finishMeetingRun(meeting, nextRun.stopReason || 'playbook-complete', 'FINISHED');
     return saveMeeting(meeting);
   }
   if (nextSession.phaseIndex !== previousSession.phaseIndex) {
@@ -674,7 +837,7 @@ async function completeResponse(message, senderTabId) {
   meeting = withActivity(meeting, `Turn ${tx.turnNumber} complete ← ${participant.label}`, { stage: 'COMPLETE', participantId: participant.id, transactionId: tx.transactionId });
 
   if (meeting.settings.maxTurns > 0 && meeting.currentTurn >= meeting.settings.maxTurns) {
-    meeting = setMeetingStatus(meeting, 'FINISHED');
+    meeting = finishMeetingRun(meeting, 'max-turns', 'FINISHED');
     meeting = withActivity(meeting, 'Meeting finished at the configured turn limit.');
     return saveMeeting(meeting);
   }
@@ -773,12 +936,123 @@ async function watchdogRecover() {
   return meeting;
 }
 
+function roomSummary(room) {
+  return {
+    id: room.id,
+    title: room.title,
+    purpose: room.purpose,
+    playbookId: room.playbookId,
+    updatedAt: room.updatedAt,
+    status: room.meeting?.status || 'READY',
+    turns: Number(room.meeting?.currentTurn) || 0,
+    runCount: Array.isArray(room.runHistory) ? room.runHistory.length : 0,
+  };
+}
+
+async function listRooms() {
+  const meeting = await getMeeting();
+  const workspace = await readWorkspace(meeting);
+  return {
+    activeRoomId: workspace.activeRoomId,
+    rooms: workspace.rooms.map(roomSummary),
+  };
+}
+
+async function selectSavedRoom(roomId) {
+  let current = await getMeeting();
+  const workspace = await readWorkspace(current);
+  if (!workspace.rooms.some((room) => room.id === roomId)) throw new Error('Room not found.');
+  if (workspace.activeRoomId === roomId) return { meeting: current, workspace };
+  if (current.status === 'LIVE' || current.activeTransaction) {
+    await backgroundTabController.releaseAll().catch(() => {});
+    current = { ...current, activeTransaction: null, nextSpeakerParticipantId: null };
+    if (current.activeRun?.status === 'RUNNING') current = { ...current, activeRun: pauseRun(current.activeRun, 'room-switched') };
+    current = setMeetingStatus(current, 'PAUSED');
+    current = withActivity(current, 'Room switched; previous Run paused.', { level: 'INFO', stage: 'ROOM_SWITCH' });
+    await saveMeeting(current, { broadcast: false });
+  }
+  const nextWorkspace = selectRoom(await readWorkspace(current), roomId);
+  const room = getActiveRoom(nextWorkspace);
+  const stored = room.meeting || createMeeting({ title: room.title });
+  const loaded = normalizeMeetingCoordination({
+    ...stored,
+    activeTransaction: null,
+    participants: (stored.participants || []).map((participant) => ({ ...participant, tabId: null, url: '', connectionState: 'DISCONNECTED', turnState: 'WAITING' })),
+    status: stored.status === 'FINISHED' ? 'FINISHED' : (stored.status === 'PAUSED' ? 'PAUSED' : 'READY'),
+  });
+  await chrome.storage.local.set({ [WORKSPACE_KEY]: durableWorkspaceState(nextWorkspace) });
+  await chrome.storage.session.set({ [ACTIVE_RUNTIME_KEY]: loaded, [ACTIVE_RUN_KEY]: loaded.activeRun || null });
+  return { meeting: await saveMeeting(loaded), workspace: await readWorkspace(loaded) };
+}
+
+async function updateActiveRoom(patch = {}) {
+  const meeting = await getMeeting();
+  const workspace = await readWorkspace(meeting);
+  const active = getActiveRoom(workspace);
+  const nextWorkspace = updateRoom(workspace, active.id, {
+    ...patch,
+    meeting: Object.hasOwn(patch, 'title') ? { ...meeting, title: normalizeText(patch.title || '') || meeting.title } : meeting,
+  });
+  await chrome.storage.local.set({ [WORKSPACE_KEY]: durableWorkspaceState(nextWorkspace) });
+  const nextMeeting = Object.hasOwn(patch, 'title')
+    ? { ...meeting, title: normalizeText(patch.title || '') || 'New AI Meeting' }
+    : meeting;
+  return saveMeeting(nextMeeting);
+}
+
+async function updatePlaybook(templateId) {
+  let meeting = await getMeeting();
+  if (!canChangeInteractionMode(meeting)) throw new Error('Pause the meeting and finish the active turn before changing the Playbook.');
+  const playbook = getPlaybook(templateId);
+  meeting = {
+    ...meeting,
+    playbookId: playbook.id,
+    session: normalizeSession({ templateId: playbook.id, status: 'IDLE' }),
+    artifact: null,
+  };
+  meeting = withActivity(meeting, `Playbook selected · ${playbook.name}.`);
+  return saveMeeting(meeting);
+}
+
 async function handleCommand(message, sender) {
   switch (message.type) {
-    case 'GET_MEETING_STATE': return { ok: true, meeting: publicMeetingState(await getMeeting()) };
+    case 'GET_WORKSPACE_STATE': {
+      const meeting = await getMeeting();
+      return { ok: true, meeting: publicMeetingState(meeting), workspace: publicWorkspaceState(await readWorkspace(meeting)) };
+    }
+    case 'LIST_ROOMS': return { ok: true, ...(await listRooms()) };
+    case 'GET_PLAYBOOKS': return { ok: true, playbooks: getPlaybooks() };
+    case 'CREATE_ROOM': {
+      const created = await newMeeting(message.options || {});
+      return { ok: true, meeting: created, workspace: publicWorkspaceState(await readWorkspace(created)) };
+    }
+    case 'SELECT_ROOM': {
+      const selected = await selectSavedRoom(message.roomId);
+      return { ok: true, meeting: publicMeetingState(selected.meeting), workspace: publicWorkspaceState(selected.workspace) };
+    }
+    case 'UPDATE_ROOM': return { ok: true, meeting: await updateActiveRoom(message.patch || {}) };
+    case 'DELETE_ROOM': {
+      const meeting = await getMeeting();
+      const workspace = await readWorkspace(meeting);
+      if (workspace.rooms.length <= 1) throw new Error('At least one Room must remain.');
+      const nextWorkspace = removeRoom(workspace, message.roomId);
+      await chrome.storage.local.set({ [WORKSPACE_KEY]: durableWorkspaceState(nextWorkspace) });
+      if (workspace.activeRoomId === message.roomId) {
+        const selected = await selectSavedRoom(nextWorkspace.activeRoomId);
+        return { ok: true, meeting: publicMeetingState(selected.meeting), workspace: publicWorkspaceState(selected.workspace) };
+      }
+      return { ok: true, meeting: publicMeetingState(meeting), workspace: publicWorkspaceState(nextWorkspace) };
+    }
+    case 'GET_MEETING_STATE': {
+      const meeting = await getMeeting();
+      return { ok: true, meeting: publicMeetingState(meeting), workspace: publicWorkspaceState(await readWorkspace(meeting)) };
+    }
     case 'LIST_SUPPORTED_TABS': return { ok: true, tabs: await listSupportedTabs() };
     case 'CHECK_ACTIVE_TURN': return { ok: true, meeting: publicMeetingState(await watchdogRecover()) };
-    case 'NEW_MEETING': return { ok: true, meeting: await newMeeting(message.options || {}) };
+    case 'NEW_MEETING': {
+      const created = await newMeeting(message.options || {});
+      return { ok: true, meeting: created, workspace: publicWorkspaceState(await readWorkspace(created)) };
+    }
     case 'ADD_PARTICIPANT': {
       let m = await getMeeting();
       m = addParticipant(m);
@@ -803,6 +1077,7 @@ async function handleCommand(message, sender) {
       return { ok: true, meeting: await saveMeeting(m) };
     }
     case 'START_MEETING': return { ok: true, meeting: await startMeeting(message.seedText || '', message.mode || null) };
+    case 'UPDATE_PLAYBOOK': return { ok: true, meeting: await updatePlaybook(message.playbookId || message.templateId || 'freeform') };
     case 'SET_INTERACTION_MODE': {
       let m = await getMeeting();
       if (!canChangeInteractionMode(m)) throw new Error('Pause the meeting and finish the active turn before changing modes.');
@@ -820,20 +1095,29 @@ async function handleCommand(message, sender) {
       return { ok: true, meeting: await saveMeeting(m) };
     }
     case 'PAUSE_MEETING': {
-      let m = setMeetingStatus(await getMeeting(), 'PAUSED');
+      let m = await getMeeting();
+      if (m.activeRun?.status === 'RUNNING') m = { ...m, activeRun: pauseRun(m.activeRun, 'paused-by-user') };
+      m = setMeetingStatus(m, 'PAUSED');
       await backgroundTabController.releaseAll().catch(() => {});
       m = withActivity(m, 'Meeting paused by user.');
       return { ok: true, meeting: await saveMeeting(m) };
     }
     case 'RESUME_MEETING': {
       let m = await getMeeting();
+      if (m.activeRun?.status === 'FINISHED' && ['max-duration', 'max-turns', 'max-hops'].includes(m.activeRun.stopReason)) {
+        throw new Error('This Run reached its safety budget. Start a new Run or increase the Run Budget first.');
+      }
       const resumedSession = m.session?.status === 'IDLE'
         ? startSession(m.session)
         : { ...normalizeSession(m.session), status: 'RUNNING' };
+      const resumedRun = m.activeRun?.status === 'PAUSED'
+        ? normalizeRun({ ...m.activeRun, status: 'RUNNING', endedAt: null, stopReason: '' })
+        : (m.activeRun || createRun({ roomId: m.id, playbook: getPlaybook(m.playbookId || m.session?.templateId), budget: runBudgetSettings(m) }));
       m = {
         ...m,
         session: resumedSession,
         loopGuard: createLoopGuardState(m.loopGuard),
+        activeRun: resumedRun,
       };
       m = setMeetingStatus(m, 'LIVE');
       m = withActivity(m, 'Meeting resumed.');
@@ -845,7 +1129,7 @@ async function handleCommand(message, sender) {
     case 'END_MEETING': {
       let m = await getMeeting();
       await backgroundTabController.releaseAll().catch(() => {});
-      m = setMeetingStatus({ ...m, activeTransaction: null, nextSpeakerParticipantId: null }, 'FINISHED');
+      m = finishMeetingRun({ ...m, activeTransaction: null, nextSpeakerParticipantId: null }, 'ended-by-user', 'FINISHED');
       m = withActivity(m, 'Meeting ended by user.');
       return { ok: true, meeting: await saveMeeting(m) };
     }
@@ -887,6 +1171,8 @@ async function handleCommand(message, sender) {
         ...(Object.hasOwn(patch,'captureScreenshots') ? { captureScreenshots: Boolean(patch.captureScreenshots) } : {}),
         ...(Object.hasOwn(patch,'retryLimit') ? { retryLimit: Math.min(5, Math.max(0, Number(patch.retryLimit) || 0)) } : {}),
         ...(Object.hasOwn(patch,'responseTimeoutMs') ? { responseTimeoutMs: Math.max(30000, Number(patch.responseTimeoutMs) || 120000) } : {}),
+        ...(Object.hasOwn(patch,'maxDurationMs') ? { maxDurationMs: guardNumber('maxDurationMs', m.settings.maxDurationMs) } : {}),
+        ...(Object.hasOwn(patch,'maxHops') ? { maxHops: guardNumber('maxHops', m.settings.maxHops) } : {}),
         ...(Object.hasOwn(patch,'loopGuardEnabled') ? { loopGuardEnabled: Boolean(patch.loopGuardEnabled) } : {}),
         ...(Object.hasOwn(patch,'loopGuardInteractive') ? { loopGuardInteractive: Boolean(patch.loopGuardInteractive) } : {}),
         ...(Object.hasOwn(patch,'loopGuardMaxHops') ? { loopGuardMaxHops: guardNumber('loopGuardMaxHops', m.settings.loopGuardMaxHops) } : {}),
@@ -916,6 +1202,7 @@ async function handleCommand(message, sender) {
       let m = await getMeeting();
       if (!canChangeInteractionMode(m)) throw new Error('Pause the meeting and finish the active turn before changing the session.');
       m = { ...m, session: normalizeSession({ templateId: message.templateId, status: 'IDLE' }) };
+      m = { ...m, playbookId: m.session.templateId, artifact: null };
       m = withActivity(m, `Session template selected ??${m.session.templateId}.`);
       return { ok: true, meeting: await saveMeeting(m) };
     }
@@ -990,6 +1277,8 @@ async function handleCommand(message, sender) {
         nextSpeakerParticipantId: null,
         session: normalizeSession({ templateId: m.session?.templateId, status: 'IDLE' }),
         loopGuard: createLoopGuardState(m.loopGuard),
+        activeRun: null,
+        artifact: null,
       };
       m = withActivity(m, 'Transcript cleared.');
       return { ok: true, meeting: await saveMeeting(m) };
@@ -1038,7 +1327,7 @@ chrome.runtime.onStartup.addListener(() => { enableSidePanelAction(); ensureWatc
 ensureWatchdog().catch(() => {});
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-  const readOnly = new Set(['GET_MEETING_STATE','LIST_SUPPORTED_TABS']);
+  const readOnly = new Set(['GET_MEETING_STATE','GET_WORKSPACE_STATE','LIST_ROOMS','GET_PLAYBOOKS','LIST_SUPPORTED_TABS']);
   const runner = readOnly.has(message?.type) ? () => handleCommand(message, sender) : () => enqueue(() => handleCommand(message, sender));
   runner().then(sendResponse).catch((error) => sendResponse({ ok: false, error: error.message || String(error) }));
   return true;
