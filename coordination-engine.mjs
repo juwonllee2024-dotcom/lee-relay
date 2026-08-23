@@ -124,8 +124,8 @@ export function normalizeSession(session = {}) {
     status,
     phaseIndex,
     phaseTurnCount: finiteNonNegative(source.phaseTurnCount, 0, 100000),
-    startedAt: Number.isFinite(Number(source.startedAt)) ? Number(source.startedAt) : null,
-    completedAt: Number.isFinite(Number(source.completedAt)) ? Number(source.completedAt) : null,
+    startedAt: source.startedAt == null ? null : (Number.isFinite(Number(source.startedAt)) ? Number(source.startedAt) : null),
+    completedAt: source.completedAt == null ? null : (Number.isFinite(Number(source.completedAt)) ? Number(source.completedAt) : null),
   };
 }
 
