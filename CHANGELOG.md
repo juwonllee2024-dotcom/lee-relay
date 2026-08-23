@@ -1,5 +1,21 @@
 # Changelog
 
+## 4.1.0
+
+### Added
+
+- Blank-Slate Room → Playbook → Run → Report workflow.
+- Persistent Rooms with safe v3/v4 meeting migration and one active Run at a time.
+- Built-in Playbooks for 9-axis channel analysis, debate, planning review, and final summary.
+- Unified Run Budget for maximum duration, AI turns, and AI-to-AI handoffs.
+- Structured `@AI` routing with safe handling for unknown, disconnected, ambiguous, and self targets.
+- Durable phase reports with 9-axis scorecards and Markdown/TXT/JSON exports.
+- Compact Room and Playbook controls in the Side Panel; advanced controls remain disclosed.
+
+### Fixed
+
+- Repeated session normalization now preserves null start/completion timestamps idempotently.
+
 ## 4.0.1
 
 ### Fixed

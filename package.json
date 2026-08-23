@@ -1,12 +1,12 @@
 {
   "name": "lee-relay",
-  "version": "4.0.1",
+  "version": "4.1.0",
   "private": true,
   "description": "Browser-native multi-AI meeting room with Interactive and Full Auto modes, background-tab relay, coordination controls, and no API keys required.",
   "type": "module",
   "scripts": {
     "test": "node --test tests/*.test.mjs",
-    "check": "node --check background.js && node --check content.js && node --check response-capture-policy.js && node --check sidepanel.js && node --check context-engine.mjs && node --check coordination-engine.mjs && node --check interaction-mode.mjs && node --check relay-core.mjs && node --check meeting-engine.mjs && node --check provider-adapters.mjs && node --check router.mjs && node --check transaction-engine.mjs",
+    "check": "node --check background.js && node --check content.js && node --check response-capture-policy.js && node --check sidepanel.js && node --check context-engine.mjs && node --check coordination-engine.mjs && node --check interaction-mode.mjs && node --check relay-core.mjs && node --check meeting-engine.mjs && node --check mention-router.mjs && node --check playbook-engine.mjs && node --check provider-adapters.mjs && node --check report-engine.mjs && node --check router.mjs && node --check run-engine.mjs && node --check transaction-engine.mjs && node --check workspace-engine.mjs",
     "package": "node scripts/package-extension.mjs",
     "verify-package": "node scripts/verify-package.mjs",
     "verify": "npm test && npm run check && node scripts/verify-manifest.mjs && npm run package && npm run verify-package"

@@ -1,4 +1,18 @@
-# Lee Relay Bot v4.0.1
+# Lee Relay Bot v4.1.0
+
+## v4.1 Blank-Slate workflow
+
+v4.1 keeps the verified v4.0.1 provider relay and presents the product as one simple flow:
+
+`Room → Playbook → Run → Report`
+
+- **Rooms** — save separate channel-analysis, idea, validation, debate, or planning conversations and switch between them without losing transcripts.
+- **Playbooks** — choose Free discussion, 9-axis channel analysis, Debate, Planning review, or Final summary. Each Run snapshots its phases and output structure.
+- **Run Budget** — every Run has one visible safety boundary for maximum time, AI turns, and handoffs. Reaching a limit pauses Full Auto and saves a report.
+- **@AI handoffs** — start a message with `@Gemini`, `@Copilot`, `@ChatGPT`, `@Claude`, a saved role, or `@all` to direct routing. Historical prose mentions are not treated as commands. Full Auto can accept a valid next-AI directive from an AI response.
+- **Reports** — completed Runs keep phase results, a 9-axis scorecard when relevant, decisions, action items, and Markdown/TXT/JSON export. Live tab IDs and URLs are excluded.
+
+Advanced retry, screenshot, Loop Guard, and diagnostic controls remain behind the Meeting Controls disclosure so the main panel stays focused on Room → Playbook → Run.
 
 ## v4 coordination features
 
@@ -10,7 +24,7 @@ Lee Relay v4 keeps the v3.0.8 Interactive and Full Auto meeting flows, including
 
 The new coordination state is local and optional. Existing meetings migrate from the v3 saved state without losing the title, topic, participants, transcript, settings, or mode. The provider tabs remain ordinary Gemini/Copilot tabs; v4 does not activate them or steal foreground focus while running in the background.
 
-v4.0.1 fixes ChatGPT long-response capture: Markdown answer bodies are collected as a complete turn, streaming markers are recognized, and a missing streaming marker no longer causes an answer to be finalized after a short pause.
+v4.1 includes the v4.0.1 ChatGPT long-response capture fix: Markdown answer bodies are collected as a complete turn, streaming markers are recognized, and a missing streaming marker no longer causes an answer to be finalized after a short pause.
 
 Lee Relay is a Chrome Side Panel meeting room that lets multiple supported AI web apps talk through their normal browser UIs without API keys.
 
@@ -61,7 +75,7 @@ For Microsoft Copilot, file mode switches on well before its observed **10,240-c
 
 Requires Chrome 120 or later.
 
-1. Download `lee-relay-v4.0.1.zip` from the [v4.0.1 release](https://github.com/juwonllee2024-dotcom/lee-relay/releases/tag/v4.0.1) and unzip it into a new folder.
+1. Download `lee-relay-v4.1.0.zip` from the [v4.1.0 release](https://github.com/juwonllee2024-dotcom/lee-relay/releases/tag/v4.1.0) and unzip it into a new folder.
 2. Open `chrome://extensions`.
 3. Enable **Developer mode**.
 4. Choose **Load unpacked**.

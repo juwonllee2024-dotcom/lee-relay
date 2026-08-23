@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "Lee Relay Bot",
-  "version": "4.0.1",
-  "description": "Persistent multi-AI meeting room with background-tab relay, participant roles, session templates, Loop Guard, adaptive context files, and verified browser automation.",
+  "version": "4.1.0",
+  "description": "Persistent multi-AI Rooms with Playbooks, bounded Runs, Reports, @AI handoffs, and verified background-tab relay.",
   "minimum_chrome_version": "120",
   "permissions": [
     "tabs",

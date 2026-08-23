@@ -40,7 +40,7 @@ test('transaction-scoped response events carry identity', () => {
 
 test('v4 manifest uses side panel as primary UI', () => {
   const manifest = JSON.parse(read('manifest.json'));
-  assert.equal(manifest.version, '4.0.1');
+  assert.equal(manifest.version, '4.1.0');
   assert.ok(manifest.permissions.includes('sidePanel'));
   assert.equal(manifest.side_panel?.default_path, 'sidepanel.html');
   assert.ok(!manifest.action?.default_popup);

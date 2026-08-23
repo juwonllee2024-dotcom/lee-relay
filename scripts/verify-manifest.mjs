@@ -13,7 +13,7 @@ const failures = [];
 const check = (condition, message) => { if (!condition) failures.push(message); };
 
 check(manifest.manifest_version === 3, 'manifest_version must be 3');
-check(manifest.version === '4.0.1', 'manifest version must be 4.0.1');
+check(manifest.version === '4.1.0', 'manifest version must be 4.1.0');
 check(manifest.name === 'Lee Relay Bot', 'manifest name must identify the AI meeting room');
 check(Number(manifest.minimum_chrome_version) >= 120, 'minimum Chrome version must be >= 120');
 check(manifest.permissions?.includes('sidePanel'), 'sidePanel permission is required');
