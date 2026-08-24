@@ -41,6 +41,17 @@
       <button id="addParticipant" class="add-participant" type="button"><span>＋</span> Add AI</button>
     </section>
 
+    <section class="context-shelf" aria-label="Context Shelf">
+      <div class="section-heading">
+        <div><span class="eyebrow">CONTEXT SHELF</span><span id="contextFileCount" class="count-label">0 / 5</span></div>
+        <button id="clearContextFiles" class="icon-button" type="button" title="Clear selected local files">Clear</button>
+      </div>
+      <p class="context-shelf-copy">Choose exact local text files for the next AI turn. Lee Relay shows the selection, sends it only through the provider tab, and never uploads it to a Lee Relay server.</p>
+      <input id="contextFilePicker" type="file" multiple hidden accept=".txt,.md,.markdown,.json,.js,.mjs,.ts,.tsx,.py,.css,.html,.xml,.yaml,.yml,.csv,.sql,.log,text/*">
+      <button id="selectContextFiles" class="select-context-button" type="button">Select local files</button>
+      <div id="contextFiles" class="context-files" aria-live="polite"></div>
+    </section>
+
     <section id="attentionStrip" class="attention-strip" hidden>
       <div class="attention-copy">
         <strong>Needs attention</strong>

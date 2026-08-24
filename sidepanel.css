@@ -66,6 +66,21 @@ button { cursor: pointer; }
 .add-participant { margin-top: 8px; width: 100%; padding: 9px; border: 1px dashed var(--border-strong); border-radius: 12px; background: transparent; color: var(--muted); font-size: 12px; }
 .add-participant:hover { color: var(--text); border-color: color-mix(in srgb,var(--accent) 45%,transparent); }
 .add-participant:disabled { opacity: .35; cursor: default; }
+.context-shelf { padding: 11px; border: 1px solid color-mix(in srgb,var(--accent) 22%,var(--border)); border-radius: 14px; background: linear-gradient(180deg,color-mix(in srgb,var(--accent) 5%,var(--panel)),var(--panel)); }
+.context-shelf .section-heading { margin-bottom: 6px; }
+.context-shelf-copy { margin: 0 0 9px; color: var(--muted); font-size: 10px; line-height: 1.45; }
+.select-context-button { width: 100%; padding: 8px; border: 1px dashed color-mix(in srgb,var(--accent) 45%,var(--border-strong)); border-radius: 10px; background: color-mix(in srgb,var(--accent) 5%,transparent); color: #cfd5ff; font-size: 10px; font-weight: 750; }
+.select-context-button:hover { border-color: var(--accent); background: color-mix(in srgb,var(--accent) 10%,transparent); }
+.context-files { display: grid; gap: 6px; margin-top: 8px; }
+.context-empty { color: var(--soft); font-size: 10px; line-height: 1.4; }
+.context-file-card { display: grid; gap: 5px; padding: 8px; border: 1px solid var(--border); border-radius: 10px; background: rgba(0,0,0,.12); }
+.context-file-top { display: flex; align-items: center; justify-content: space-between; gap: 7px; }
+.context-file-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #dfe3ea; font-size: 10px; font-weight: 750; }
+.context-file-remove { border: 0; background: transparent; color: var(--soft); padding: 0 2px; font-size: 14px; line-height: 1; }
+.context-file-remove:hover { color: var(--bad); }
+.context-file-meta { color: var(--soft); font-size: 9px; }
+.context-file-preview { margin: 0; max-height: 62px; overflow: hidden; white-space: pre-wrap; overflow-wrap: anywhere; color: #9ca5b4; font: 9px/1.4 ui-monospace, SFMono-Regular, Consolas, monospace; }
+.context-shelf .icon-button { width: auto; padding: 0 8px; font-size: 9px; }
 .attention-strip { padding: 11px; border: 1px solid color-mix(in srgb,var(--warn) 40%,transparent); border-radius: 14px; background: color-mix(in srgb,var(--warn) 7%,var(--panel)); }
 .attention-copy { display: grid; gap: 3px; margin-bottom: 9px; }
 .attention-copy strong { font-size: 12px; color: #ffd7a2; }

@@ -9,6 +9,7 @@ export const PACKAGE_FILES = [
   'background-tab-controller.mjs',
   'content.js',
   'context-engine.mjs',
+  'file-context.mjs',
   'coordination-engine.mjs',
   'interaction-mode.mjs',
   'meeting-engine.mjs',

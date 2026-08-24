@@ -1,5 +1,14 @@
 # Changelog
 
+## 4.2.0 — 2026-08-24
+
+### Added
+
+- Context Shelf for selecting up to five local text files from the Side Panel.
+- Filename, preview, byte count, and SHA-256 review before a file enters an AI turn.
+- Bounded `.txt` context attachment with inline excerpt fallback when provider upload controls are unavailable.
+- Session-only file contents; durable Rooms and portable meeting exports omit selected files.
+
 ## 4.1.0
 
 ### Added

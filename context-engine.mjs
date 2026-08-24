@@ -1,4 +1,5 @@
 import { buildAutonomousCompactPrompt, buildCompactRelayPrompt, normalizeText } from './relay-core.mjs';
+import { buildSelectedFilesBlock, normalizeSelectedContextFiles } from './file-context.mjs';
 
 export const PROVIDER_CONTEXT_LIMITS = Object.freeze({
   copilot: Object.freeze({ inlineMaxChars: 5000, compactMaxChars: 8000, fallbackMaxChars: 7400, fileSwitchChars: 8000, maxFileChars: 160000 }),
@@ -113,8 +114,9 @@ function safeFileName(turnNumber = 0) {
   return `lee-relay-context-turn-${String(Math.max(0, Number(turnNumber) || 0)).padStart(3, '0')}.txt`;
 }
 
-function buildContextFile({ meetingTitle, targetLabel, participants, turnNumber, entries, maxChars, coordinationText = '' }) {
+function buildContextFile({ meetingTitle, targetLabel, participants, turnNumber, entries, maxChars, coordinationText = '', selectedFiles = [] }) {
   const clean = cleanEntries(entries);
+  const selected = normalizeSelectedContextFiles(selectedFiles);
   const latest = clean.at(-1) || { speaker: 'User', text: 'The conversation has just started.' };
   const recent = clean.slice(Math.max(0, clean.length - 7), -1);
   const earlier = clean.slice(0, Math.max(0, clean.length - 7));
@@ -139,7 +141,14 @@ function buildContextFile({ meetingTitle, targetLabel, participants, turnNumber,
     `Continue the conversation naturally as ${normalizeText(targetLabel || 'AI')}. Respond to the latest turn using the context above. Do not repeat or summarize this file unless asked. If you want a specific participant to answer next, address them by name.`,
   ].join('\n');
 
-  const fixedSize = header.length + recentBlock.length + 80;
+  const selectedBudget = selected.length
+    ? Math.max(800, maxChars - header.length - recentBlock.length - 1200)
+    : 0;
+  const selectedBlock = selected.length
+    ? buildSelectedFilesBlock(selected, { maxChars: selectedBudget })
+    : '';
+  const selectedSection = selectedBlock ? `${selectedBlock}\n\n` : '';
+  const fixedSize = header.length + recentBlock.length + selectedSection.length + 80;
   const earlierBudget = Math.max(0, maxChars - fixedSize);
   let earlierText = earlier.map(formatEntry).join('\n\n');
   let omitted = false;
@@ -154,8 +163,9 @@ function buildContextFile({ meetingTitle, targetLabel, participants, turnNumber,
   return {
     name: safeFileName(turnNumber),
     mimeType: 'text/plain',
-    text: `${header}${earlierBlock}${recentBlock}`,
+    text: `${header}${selectedSection}${earlierBlock}${recentBlock}`,
     omittedOlderContext: omitted,
+    selectedFileCount: selected.length,
   };
 }
 
@@ -186,8 +196,9 @@ function buildAutonomousCompactPromptWithin({ targetLabel, participants, topicTe
   return prompt.slice(0, maxChars);
 }
 
-function buildAutonomousContextFile({ targetLabel, participants, topicText, turnNumber, entries, maxChars, coordinationText = '' }) {
+function buildAutonomousContextFile({ targetLabel, participants, topicText, turnNumber, entries, maxChars, coordinationText = '', selectedFiles = [] }) {
   const clean = cleanAutonomousEntries(entries);
+  const selected = normalizeSelectedContextFiles(selectedFiles);
   const latest = clean.at(-1) || { speaker: 'Discussion', text: 'The discussion has just started.' };
   const recent = clean.slice(Math.max(0, clean.length - 7), -1);
   const earlier = clean.slice(0, Math.max(0, clean.length - 7));
@@ -212,7 +223,14 @@ function buildAutonomousContextFile({ targetLabel, participants, topicText, turn
     `Continue the discussion naturally as ${normalizeText(targetLabel || 'AI')}. Respond to the latest AI turn using the context above. Do not repeat or summarize this file unless asked. If you want a specific participant to answer next, address them by name.`,
   ].join('\n');
 
-  const fixedSize = header.length + recentBlock.length + 80;
+  const selectedBudget = selected.length
+    ? Math.max(800, maxChars - header.length - recentBlock.length - 1200)
+    : 0;
+  const selectedBlock = selected.length
+    ? buildSelectedFilesBlock(selected, { maxChars: selectedBudget })
+    : '';
+  const selectedSection = selectedBlock ? `${selectedBlock}\n\n` : '';
+  const fixedSize = header.length + recentBlock.length + selectedSection.length + 80;
   const earlierBudget = Math.max(0, maxChars - fixedSize);
   let earlierText = earlier.map(formatEntry).join('\n\n');
   let omitted = false;
@@ -225,36 +243,47 @@ function buildAutonomousContextFile({ targetLabel, participants, topicText, turn
   return {
     name: safeFileName(turnNumber).replace('lee-relay-context', 'autonomous-ai-context'),
     mimeType: 'text/plain',
-    text: `${header}${earlierBlock}${recentBlock}`,
+    text: `${header}${selectedSection}${earlierBlock}${recentBlock}`,
     omittedOlderContext: omitted,
+    selectedFileCount: selected.length,
   };
 }
 
-export function buildFallbackInlinePrompt({ provider, targetLabel, participants, entries, role = '', rolePrompt = '', sessionPhase = null } = {}) {
+export function buildFallbackInlinePrompt({ provider, targetLabel, participants, entries, role = '', rolePrompt = '', sessionPhase = null, selectedFiles = [] } = {}) {
   const limits = limitsFor(provider);
+  const selected = normalizeSelectedContextFiles(selectedFiles);
   const coordinationText = buildCoordinationText({ role, rolePrompt, sessionPhase });
-  return buildCompactPromptWithin({
+  const fileBlock = selected.length
+    ? buildSelectedFilesBlock(selected, { maxChars: Math.min(2400, Math.floor(limits.fallbackMaxChars * 0.35)) })
+    : '';
+  const prompt = buildCompactPromptWithin({
     targetLabel,
     participants,
     entries,
-    maxChars: limits.fallbackMaxChars,
+    maxChars: Math.max(240, limits.fallbackMaxChars - fileBlock.length - (fileBlock ? 120 : 0)),
     omitted: true,
     coordinationText,
   });
+  return `${prompt}${fileBlock ? `\n\n${fileBlock}` : ''}`.slice(0, limits.fallbackMaxChars);
 }
 
-export function buildAutonomousFallbackInlinePrompt({ provider, targetLabel, participants, topicText, entries, role = '', rolePrompt = '', sessionPhase = null } = {}) {
+export function buildAutonomousFallbackInlinePrompt({ provider, targetLabel, participants, topicText, entries, role = '', rolePrompt = '', sessionPhase = null, selectedFiles = [] } = {}) {
   const limits = limitsFor(provider);
+  const selected = normalizeSelectedContextFiles(selectedFiles);
   const coordinationText = buildCoordinationText({ role, rolePrompt, sessionPhase, autonomous: true });
-  return buildAutonomousCompactPromptWithin({
+  const fileBlock = selected.length
+    ? buildSelectedFilesBlock(selected, { maxChars: Math.min(2400, Math.floor(limits.fallbackMaxChars * 0.35)) })
+    : '';
+  const prompt = buildAutonomousCompactPromptWithin({
     targetLabel,
     participants,
     topicText,
     entries,
-    maxChars: limits.fallbackMaxChars,
+    maxChars: Math.max(240, limits.fallbackMaxChars - fileBlock.length - (fileBlock ? 120 : 0)),
     omitted: true,
     coordinationText,
   });
+  return `${prompt}${fileBlock ? `\n\n${fileBlock}` : ''}`.slice(0, limits.fallbackMaxChars);
 }
 
 export function buildAdaptiveContextPlan({
@@ -267,11 +296,38 @@ export function buildAdaptiveContextPlan({
   role = '',
   rolePrompt = '',
   sessionPhase = null,
+  selectedFiles = [],
 } = {}) {
   const limits = limitsFor(provider);
   const clean = cleanEntries(entries);
+  const selected = normalizeSelectedContextFiles(selectedFiles);
   const coordinationText = buildCoordinationText({ role, rolePrompt, sessionPhase });
   const fullPrompt = appendCoordination(buildCompactRelayPrompt({ targetLabel, participants, entries: clean }), coordinationText, limits.fileSwitchChars);
+
+  if (selected.length) {
+    const contextFile = buildContextFile({
+      meetingTitle,
+      targetLabel,
+      participants,
+      turnNumber,
+      entries: clean,
+      maxChars: limits.maxFileChars,
+      coordinationText,
+      selectedFiles: selected,
+    });
+    const otherParticipants = (participants || []).filter((p) => normalizeText(p).toLowerCase() !== normalizeText(targetLabel).toLowerCase()).join(', ') || 'the other participants';
+    const promptText = appendCoordination(normalizeText(
+      `You are ${targetLabel} in a live Lee Relay conversation with ${otherParticipants}. The full meeting context and selected local files are attached as ${contextFile.name}. Read [SELECTED LOCAL FILES], especially the file contents, then reply naturally to the latest message. Do not repeat the attachment or these instructions. If you want a specific participant to answer next, address them by name.`
+    ).replace(/\s+/g, ' ').trim(), coordinationText, limits.inlineMaxChars);
+    return {
+      mode: 'file',
+      promptText,
+      contextFile,
+      fullContextChars: compactLength(clean) + selected.reduce((sum, file) => sum + file.text.length, 0),
+      omittedEntries: 0,
+      selectedFileCount: selected.length,
+    };
+  }
 
   if (fullPrompt.length <= limits.inlineMaxChars) {
     return {
@@ -338,11 +394,37 @@ export function buildAutonomousContextPlan({
   role = '',
   rolePrompt = '',
   sessionPhase = null,
+  selectedFiles = [],
 } = {}) {
   const limits = limitsFor(provider);
   const clean = cleanAutonomousEntries(entries);
+  const selected = normalizeSelectedContextFiles(selectedFiles);
   const coordinationText = buildCoordinationText({ role, rolePrompt, sessionPhase, autonomous: true });
   const fullPrompt = appendCoordination(buildAutonomousCompactPrompt({ targetLabel, participants, topicText, entries: clean }), coordinationText, limits.fileSwitchChars);
+
+  if (selected.length) {
+    const contextFile = buildAutonomousContextFile({
+      targetLabel,
+      participants,
+      topicText,
+      turnNumber,
+      entries: clean,
+      maxChars: limits.maxFileChars,
+      coordinationText,
+      selectedFiles: selected,
+    });
+    const promptText = appendCoordination(normalizeText(
+      `You are ${targetLabel}, one AI participant in an ongoing peer discussion. Topic: ${topicText || 'the selected topic'}. The full discussion context and selected local files are attached as ${contextFile.name}. Read [SELECTED LOCAL FILES], especially the file contents, then reply naturally to the latest AI turn. Do not repeat the attachment or these instructions. If you want a specific participant to answer next, address them by name.`
+    ).replace(/\s+/g, ' ').trim(), coordinationText, limits.inlineMaxChars);
+    return {
+      mode: 'file',
+      promptText,
+      contextFile,
+      fullContextChars: compactLength(clean) + selected.reduce((sum, file) => sum + file.text.length, 0),
+      omittedEntries: 0,
+      selectedFileCount: selected.length,
+    };
+  }
 
   if (fullPrompt.length <= limits.inlineMaxChars) {
     return {

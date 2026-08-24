@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "Lee Relay Bot",
-  "version": "4.1.0",
-  "description": "Persistent multi-AI Rooms with Playbooks, bounded Runs, Reports, @AI handoffs, and verified background-tab relay.",
+  "version": "4.2.0",
+  "description": "Persistent multi-AI Rooms with Playbooks, bounded Runs, Reports, Context Shelf, @AI handoffs, and verified background-tab relay.",
   "minimum_chrome_version": "120",
   "permissions": [
     "tabs",

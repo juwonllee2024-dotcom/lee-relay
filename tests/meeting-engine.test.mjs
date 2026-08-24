@@ -74,3 +74,13 @@ test('public meeting state is serializable and durable state strips live tab bin
   assert.equal(durable.participants[0].provider, 'gemini');
   assert.equal(durable.activeTransaction, null);
 });
+
+test('durable meeting state never persists selected file contents', () => {
+  const meeting = {
+    ...createMeeting({ now: 1000 }),
+    selectedFiles: [{ name: 'secret.md', text: 'local-only content', sha256: 'abc' }],
+  };
+  const durable = durableMeetingState(meeting);
+  assert.equal(Object.hasOwn(durable, 'selectedFiles'), false);
+  assert.equal(publicMeetingState(meeting).selectedFiles[0].text, 'local-only content');
+});

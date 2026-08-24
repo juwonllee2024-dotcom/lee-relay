@@ -6,6 +6,10 @@ import {
   formatRunReportText,
   safeExportFilename,
 } from './transcript-export.mjs';
+import {
+  MAX_CONTEXT_FILE_CHARS,
+  normalizeSelectedContextFiles,
+} from './file-context.mjs';
 
 const $ = (id) => document.getElementById(id);
 let meeting = null;
@@ -23,6 +27,7 @@ const SESSION_OPTIONS = [
 const els = {
   meetingTitle: $('meetingTitle'), meetingStatus: $('meetingStatus'), participantCount: $('participantCount'), participants: $('participants'),
   roomSelect: $('roomSelect'), createRoom: $('createRoom'), playbookPicker: $('playbookPicker'), playbookHint: $('playbookHint'),
+  contextFilePicker: $('contextFilePicker'), selectContextFiles: $('selectContextFiles'), clearContextFiles: $('clearContextFiles'), contextFiles: $('contextFiles'), contextFileCount: $('contextFileCount'),
   addParticipant: $('addParticipant'), refreshTabs: $('refreshTabs'), transcript: $('transcript'), turnCounter: $('turnCounter'), exportMarkdown: $('exportMarkdown'), exportJson: $('exportJson'), composer: $('composer'),
   exportText: $('exportText'), exportReportMarkdown: $('exportReportMarkdown'), exportReportText: $('exportReportText'),
   interactionMode: $('interactionMode'), interactiveMode: $('interactiveMode'), autonomousMode: $('autonomousMode'), joinConversation: $('joinConversation'), modeHint: $('modeHint'),
@@ -189,6 +194,59 @@ function renderActivity() {
   }
 }
 
+function formatBytes(bytes) {
+  const value = Number(bytes) || 0;
+  if (value < 1024) return `${value} B`;
+  if (value < 1024 * 1024) return `${(value / 1024).toFixed(1)} KB`;
+  return `${(value / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+async function removeContextFile(id) {
+  try {
+    const files = (meeting?.selectedFiles || []).filter((file) => file.id !== id);
+    await call('SET_CONTEXT_FILES', { files });
+    render();
+    notice('Context Shelf updated.');
+  } catch (e) { notice(e.message, true); }
+}
+
+function renderContextFiles() {
+  const files = meeting?.selectedFiles || [];
+  els.contextFileCount.textContent = `${files.length} / 5`;
+  els.contextFiles.replaceChildren();
+  if (!files.length) {
+    const empty = document.createElement('div');
+    empty.className = 'context-empty';
+    empty.textContent = 'No local files selected. Existing meeting context stays unchanged.';
+    els.contextFiles.append(empty);
+    return;
+  }
+  for (const file of files) {
+    const card = document.createElement('article');
+    card.className = 'context-file-card';
+    const top = document.createElement('div');
+    top.className = 'context-file-top';
+    const name = document.createElement('span');
+    name.className = 'context-file-name';
+    name.textContent = file.name;
+    const remove = document.createElement('button');
+    remove.className = 'context-file-remove';
+    remove.type = 'button';
+    remove.textContent = '×';
+    remove.title = `Remove ${file.name}`;
+    remove.addEventListener('click', () => removeContextFile(file.id));
+    top.append(name, remove);
+    const meta = document.createElement('div');
+    meta.className = 'context-file-meta';
+    meta.textContent = `${formatBytes(file.size)} · sha256 ${String(file.sha256 || 'unavailable').slice(0, 12)}`;
+    const preview = document.createElement('pre');
+    preview.className = 'context-file-preview';
+    preview.textContent = String(file.text || '').slice(0, 280);
+    card.append(top, meta, preview);
+    els.contextFiles.append(card);
+  }
+}
+
 function renderSettings() {
   const s = meeting.settings || {};
   const session = meeting.session || {};
@@ -266,11 +324,15 @@ function renderControls() {
   const hasReport = Boolean(meeting.artifact);
   els.exportReportMarkdown.disabled = !hasReport;
   els.exportReportText.disabled = !hasReport;
+  const contextEditable = ['READY', 'PAUSED'].includes(status) && !meeting.activeTransaction;
+  els.selectContextFiles.disabled = !contextEditable;
+  els.contextFilePicker.disabled = !contextEditable;
+  els.clearContextFiles.disabled = !contextEditable || !meeting.selectedFiles?.length;
 }
 
 function render() {
   if (!meeting) return;
-  renderWorkspace(); renderControls(); renderParticipants(); renderTranscript(); renderActivity(); renderSettings(); renderAttention();
+  renderWorkspace(); renderControls(); renderParticipants(); renderContextFiles(); renderTranscript(); renderActivity(); renderSettings(); renderAttention();
 }
 
 async function refreshTabs(showNotice = true) {
@@ -346,6 +408,47 @@ async function sendComposer() {
   } catch (e) { notice(e.message, true); }
 }
 
+function isTextContextFile(file) {
+  return /\.(txt|md|markdown|json|js|mjs|ts|tsx|py|css|html|xml|yaml|yml|csv|sql|log)$/i.test(file.name || '')
+    || String(file.type || '').startsWith('text/');
+}
+
+async function sha256Text(text) {
+  if (!globalThis.crypto?.subtle) return '';
+  const digest = await globalThis.crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
+  return [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, '0')).join('');
+}
+
+async function readSelectedFile(file) {
+  if (!isTextContextFile(file)) throw new Error(`${file.name} is not a supported text file.`);
+  if (file.size > MAX_CONTEXT_FILE_CHARS) throw new Error(`${file.name} is larger than the 120,000-character file limit.`);
+  const text = await file.text();
+  if (!text.trim()) throw new Error(`${file.name} is empty.`);
+  return {
+    name: file.name,
+    type: file.type || 'text/plain',
+    size: file.size,
+    lastModified: file.lastModified,
+    sha256: await sha256Text(text),
+    text,
+  };
+}
+
+async function selectContextFiles(event) {
+  const picked = [...(event.target.files || [])];
+  if (!picked.length) return;
+  try {
+    const incoming = await Promise.all(picked.map(readSelectedFile));
+    const names = new Set(incoming.map((file) => file.name));
+    const merged = [...(meeting?.selectedFiles || []).filter((file) => !names.has(file.name)), ...incoming];
+    const selectedFiles = normalizeSelectedContextFiles(merged);
+    await call('SET_CONTEXT_FILES', { files: selectedFiles });
+    render();
+    notice(`${selectedFiles.length} local file(s) selected. Review preview before starting.`);
+  } catch (e) { notice(e.message, true); }
+  finally { event.target.value = ''; }
+}
+
 function downloadText(filename, content, mimeType) {
   const url = URL.createObjectURL(new Blob([content], { type: `${mimeType};charset=utf-8` }));
   const anchor = document.createElement('a');
@@ -391,6 +494,12 @@ function exportReport(format) {
 
 els.sendUserMessage.addEventListener('click', sendComposer);
 els.composer.addEventListener('keydown', (e) => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); sendComposer(); } });
+els.selectContextFiles.addEventListener('click', () => els.contextFilePicker.click());
+els.contextFilePicker.addEventListener('change', selectContextFiles);
+els.clearContextFiles.addEventListener('click', async () => {
+  try { await call('SET_CONTEXT_FILES', { files: [] }); render(); notice('Context Shelf cleared.'); }
+  catch (e) { notice(e.message, true); }
+});
 els.exportMarkdown.addEventListener('click', () => exportTranscript('markdown'));
 els.exportJson.addEventListener('click', () => exportTranscript('json'));
 els.exportText.addEventListener('click', () => exportTranscript('text'));

@@ -72,6 +72,7 @@ export function createMeeting(options = {}) {
     updatedAt: now,
     participants: [createParticipant(0), createParticipant(1)],
     transcript: [],
+    selectedFiles: [],
     currentTurn: 0,
     nextSpeakerParticipantId: null,
     routingMode: 'smart',
@@ -200,6 +201,7 @@ export function durableMeetingState(meeting) {
     turnState: 'WAITING',
   }));
   copy.activeTransaction = null;
+  delete copy.selectedFiles;
   copy.interactionMode = normalizeInteractionMode(copy.interactionMode);
   copy.topicText = normalizeTopicText(copy.topicText);
   if (copy.status === 'LIVE' || copy.status === 'NEEDS_ATTENTION') copy.status = 'PAUSED';

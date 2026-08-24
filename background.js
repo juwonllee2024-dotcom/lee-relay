@@ -36,6 +36,7 @@ import {
   buildAutonomousFallbackInlinePrompt,
   buildFallbackInlinePrompt,
 } from './context-engine.mjs';
+import { normalizeSelectedContextFiles } from './file-context.mjs';
 import { createBackgroundTabController } from './background-tab-controller.mjs';
 import {
   addRoom,
@@ -185,6 +186,7 @@ async function getMeeting() {
       settings: { ...DEFAULT_MEETING_SETTINGS, ...(active.settings || {}) },
       interactionMode: normalizeInteractionMode(active.interactionMode),
       topicText: normalizeTopicText(active.topicText),
+      selectedFiles: Array.isArray(active.selectedFiles) ? active.selectedFiles : [],
       activeRun: active.activeRun || session[ACTIVE_RUN_KEY] || null,
     };
     if (!session[ACTIVE_RUNTIME_KEY]) await chrome.storage.session.set({ [ACTIVE_RUNTIME_KEY]: next });
@@ -203,6 +205,7 @@ async function getMeeting() {
     topicText: normalizeTopicText(restored.topicText),
     activeTransaction: null,
     activeRun: restored.activeRun || null,
+    selectedFiles: [],
     participants: (restored.participants || []).map((p) => ({ ...p, tabId: null, url: '', connectionState: 'DISCONNECTED', turnState: 'WAITING' })),
   });
   await chrome.storage.session.set({ [ACTIVE_RUNTIME_KEY]: meeting, [ACTIVE_RUN_KEY]: meeting.activeRun || null });
@@ -359,6 +362,7 @@ function buildMeetingContextPlan(meeting, target, entries = meetingContextEntrie
     rolePrompt: target.rolePrompt,
     sessionPhase: phase,
     entries,
+    selectedFiles: meeting.selectedFiles || [],
   };
   return meeting.interactionMode === 'autonomous'
     ? buildAutonomousContextPlan(options)
@@ -380,6 +384,7 @@ function buildFallbackPrompt(meeting, participant, entries) {
     rolePrompt: participant.rolePrompt,
     sessionPhase: phase,
     entries,
+    selectedFiles: meeting.selectedFiles || [],
   };
   return meeting.interactionMode === 'autonomous'
     ? buildAutonomousFallbackInlinePrompt(options)
@@ -1078,6 +1083,16 @@ async function handleCommand(message, sender) {
     }
     case 'START_MEETING': return { ok: true, meeting: await startMeeting(message.seedText || '', message.mode || null) };
     case 'UPDATE_PLAYBOOK': return { ok: true, meeting: await updatePlaybook(message.playbookId || message.templateId || 'freeform') };
+    case 'SET_CONTEXT_FILES': {
+      let m = await getMeeting();
+      if (m.status === 'LIVE') throw new Error('Pause the meeting before changing Context Shelf files.');
+      const selectedFiles = normalizeSelectedContextFiles(message.files || []);
+      m = { ...m, selectedFiles };
+      m = withActivity(m, selectedFiles.length
+        ? `Context Shelf updated: ${selectedFiles.map((file) => file.name).join(', ')}.`
+        : 'Context Shelf cleared.');
+      return { ok: true, meeting: await saveMeeting(m) };
+    }
     case 'SET_INTERACTION_MODE': {
       let m = await getMeeting();
       if (!canChangeInteractionMode(m)) throw new Error('Pause the meeting and finish the active turn before changing modes.');
