@@ -29,6 +29,7 @@ test('selected local files force a visible context attachment for short meetings
 
   assert.equal(plan.mode, 'file');
   assert.equal(plan.selectedFileCount, 1);
+  assert.deepEqual(plan.selectedFiles, [{ name: 'project-plan.md', size: 42, sha256: 'feedface' }]);
   assert.match(plan.contextFile.text, /SELECTED LOCAL FILES/);
   assert.match(plan.contextFile.text, /project-plan\.md/);
   assert.match(plan.contextFile.text, /Keep the launch checklist visible/);
@@ -47,6 +48,7 @@ test('autonomous runs carry selected files without adding human transcript ident
   });
 
   assert.equal(plan.mode, 'file');
+  assert.deepEqual(plan.selectedFiles, [{ name: 'project-plan.md', size: 42, sha256: 'feedface' }]);
   assert.match(plan.contextFile.text, /project-plan\.md/);
   assert.doesNotMatch(plan.contextFile.text, /User:/);
 });

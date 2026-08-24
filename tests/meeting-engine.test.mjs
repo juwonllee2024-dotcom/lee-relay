@@ -21,6 +21,8 @@ test('new meetings start READY with exactly two participant slots', () => {
   assert.deepEqual(meeting.transcript, []);
   assert.equal(meeting.participants[0].slotIndex, 0);
   assert.equal(meeting.participants[1].slotIndex, 1);
+  assert.equal(meeting.contextFilePolicy, 'every-turn');
+  assert.equal(meeting.contextReceipt, null);
 });
 
 test('participants can grow to six but no further', () => {
@@ -83,4 +85,18 @@ test('durable meeting state never persists selected file contents', () => {
   const durable = durableMeetingState(meeting);
   assert.equal(Object.hasOwn(durable, 'selectedFiles'), false);
   assert.equal(publicMeetingState(meeting).selectedFiles[0].text, 'local-only content');
+});
+
+test('durable meeting state keeps scope preference but strips the handoff receipt', () => {
+  const meeting = {
+    ...createMeeting({ now: 1000 }),
+    contextFilePolicy: 'next-turn',
+    contextReceipt: {
+      provider: 'gemini',
+      files: [{ name: 'secret.md', size: 10, sha256: 'abc' }],
+    },
+  };
+  const durable = durableMeetingState(meeting);
+  assert.equal(durable.contextFilePolicy, 'next-turn');
+  assert.equal(Object.hasOwn(durable, 'contextReceipt'), false);
 });

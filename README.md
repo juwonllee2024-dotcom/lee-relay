@@ -1,4 +1,4 @@
-# Lee Relay Bot v4.1.0
+# Lee Relay Bot v4.3.0
 
 ## v4.1 Blank-Slate workflow
 
@@ -14,7 +14,7 @@ v4.1 keeps the verified v4.0.1 provider relay and presents the product as one si
 
 Advanced retry, screenshot, Loop Guard, and diagnostic controls remain behind the Meeting Controls disclosure so the main panel stays focused on Room → Playbook → Run.
 
-## Context Shelf (v4.2.0)
+## Context Shelf + Context Guard (v4.3.0)
 
 Use your own files in an AI meeting without copy-pasting a whole document:
 
@@ -22,6 +22,8 @@ Use your own files in an AI meeting without copy-pasting a whole document:
 - Review each filename, preview, byte count, and SHA-256 before starting or resuming a meeting.
 - Lee Relay packages selected files into a bounded `.txt` attachment for the next provider turn.
 - If a provider upload control is unavailable, Lee Relay keeps a bounded excerpt inline instead of silently dropping the file.
+- **Context Guard** lets you choose `Every turn` or `Next turn only`; the latter clears selected files only after the turn is verified complete.
+- A visible handoff receipt shows the target provider, attachment versus inline fallback, file names, and short SHA-256 values. It never includes local paths or file contents.
 - Files stay in the active browser session. Durable Rooms, meeting exports, and Lee Relay servers do not receive selected file contents.
 - Clear the Shelf or remove one file while the meeting is READY or PAUSED.
 
@@ -86,7 +88,7 @@ For Microsoft Copilot, file mode switches on well before its observed **10,240-c
 
 Requires Chrome 120 or later.
 
-1. Download `lee-relay-v4.2.0.zip` from the [v4.2.0 release](https://github.com/juwonllee2024-dotcom/lee-relay/releases/tag/v4.2.0) and unzip it into a new folder.
+1. Download `lee-relay-v4.3.0.zip` from the [v4.3.0 release](https://github.com/juwonllee2024-dotcom/lee-relay/releases/tag/v4.3.0) and unzip it into a new folder.
 2. Open `chrome://extensions`.
 3. Enable **Developer mode**.
 4. Choose **Load unpacked**.
@@ -101,9 +103,9 @@ Requires Chrome 120 or later.
 3. Choose an open AI tab for participant 1 and participant 2.
 4. Optionally press **+ Add AI** to add more participants (maximum 6).
 5. Choose **Interactive** or **Full Auto**, then type a meeting topic in the composer.
-6. Optional: use **Context Shelf** to select local Markdown, code, JSON, CSV, or text files. Review the previews before continuing.
+6. Optional: use **Context Shelf** to select local Markdown, code, JSON, CSV, or text files. Review the previews, then choose **Every turn** or **Next turn only** in Context Guard.
 7. Press **Start Meeting**. In Interactive mode the composer text becomes the first USER meeting entry; in Full Auto it is stored as the meeting topic only.
-8. Lee Relay sends structured meeting context and selected file attachment to the chosen first speaker, then verifies that the provider actually accepted it before waiting for a response.
+8. Lee Relay sends structured meeting context and selected file attachment to the chosen first speaker, verifies the provider handoff, and leaves a visible receipt before waiting for a response.
 
 While LIVE in Interactive mode, anything you type into **Say something to the room…** becomes a USER transcript entry and is included in the next AI turn.
 
@@ -189,7 +191,7 @@ After a browser restart, the saved transcript can remain, but live participants 
 
 Lee Relay automates third-party AI web interfaces. ChatGPT, Claude, Gemini, and Copilot can change their DOM structures without notice. Provider selectors may therefore need maintenance after a site UI update. The v3 transaction/recovery system is designed to surface these failures explicitly instead of silently advancing the meeting.
 
-Context Shelf supports text-oriented files only. It does not upload files to a Lee Relay service, bypass provider limits, or grant access to files the user did not explicitly choose. Provider upload UI changes can still force the bounded inline fallback.
+Context Shelf supports text-oriented files only. It does not upload files to a Lee Relay service, bypass provider limits, or grant access to files the user did not explicitly choose. Context Guard receipts keep only bounded metadata. Provider upload UI changes can still force the bounded inline fallback, which is shown explicitly in the receipt.
 
 
 ## v3.0.4 Gemini duplicate/echo hardening

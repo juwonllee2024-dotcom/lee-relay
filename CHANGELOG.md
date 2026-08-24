@@ -1,5 +1,13 @@
 # Changelog
 
+## 4.3.0 — 2026-08-24
+
+### Added
+
+- Context Guard scope control: keep selected files for every turn or clear them after the next verified turn.
+- Visible handoff receipts showing provider, delivery mode, file names, short SHA-256 values, and one-turn clearing state.
+- Receipt metadata is bounded and excludes file contents and local paths.
+
 ## 4.2.0 — 2026-08-24
 
 ### Added

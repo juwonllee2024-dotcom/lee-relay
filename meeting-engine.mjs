@@ -3,6 +3,7 @@ import {
   normalizeMeetingCoordination,
   normalizeParticipantCoordination,
 } from './coordination-engine.mjs';
+import { CONTEXT_FILE_POLICIES, normalizeContextFilePolicy } from './file-context.mjs';
 
 export const MAX_PARTICIPANTS = 6;
 export const DEFAULT_MEETING_SETTINGS = Object.freeze({
@@ -73,6 +74,8 @@ export function createMeeting(options = {}) {
     participants: [createParticipant(0), createParticipant(1)],
     transcript: [],
     selectedFiles: [],
+    contextFilePolicy: normalizeContextFilePolicy(options.contextFilePolicy || CONTEXT_FILE_POLICIES.EVERY_TURN),
+    contextReceipt: null,
     currentTurn: 0,
     nextSpeakerParticipantId: null,
     routingMode: 'smart',
@@ -202,6 +205,8 @@ export function durableMeetingState(meeting) {
   }));
   copy.activeTransaction = null;
   delete copy.selectedFiles;
+  delete copy.contextReceipt;
+  copy.contextFilePolicy = normalizeContextFilePolicy(copy.contextFilePolicy);
   copy.interactionMode = normalizeInteractionMode(copy.interactionMode);
   copy.topicText = normalizeTopicText(copy.topicText);
   if (copy.status === 'LIVE' || copy.status === 'NEEDS_ATTENTION') copy.status = 'PAUSED';

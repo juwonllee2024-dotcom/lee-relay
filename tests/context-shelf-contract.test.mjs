@@ -32,3 +32,18 @@ test('selected file context is included in both interactive and autonomous plans
   const background = read('background.js');
   assert.match(background, /selectedFiles:\s*meeting\.selectedFiles(?:\s*\|\|\s*\[\])?/);
 });
+
+test('Context Guard exposes scope control and a safe handoff receipt', () => {
+  const html = read('sidepanel.html');
+  const js = read('sidepanel.js');
+  const background = read('background.js');
+  assert.match(html, /contextFilePolicy/);
+  assert.match(html, /Next turn only/);
+  assert.match(html, /contextReceipt/);
+  assert.match(js, /SET_CONTEXT_POLICY/);
+  assert.match(js, /renderContextReceipt/);
+  assert.match(background, /case 'SET_CONTEXT_POLICY'/);
+  assert.match(background, /createContextReceipt/);
+  assert.match(background, /applyContextGuardAfterTurn/);
+  assert.match(background, /CONTEXT_CLEARED/);
+});

@@ -1,6 +1,16 @@
 export const MAX_CONTEXT_FILES = 5;
 export const MAX_CONTEXT_FILE_CHARS = 120000;
 export const MAX_CONTEXT_TOTAL_CHARS = 240000;
+export const CONTEXT_FILE_POLICIES = Object.freeze({
+  EVERY_TURN: 'every-turn',
+  NEXT_TURN: 'next-turn',
+});
+
+export function normalizeContextFilePolicy(value) {
+  return value === CONTEXT_FILE_POLICIES.NEXT_TURN
+    ? CONTEXT_FILE_POLICIES.NEXT_TURN
+    : CONTEXT_FILE_POLICIES.EVERY_TURN;
+}
 
 function basename(value) {
   const raw = String(value || '').replaceAll('\\', '/').split('/').at(-1) || '';
@@ -47,6 +57,70 @@ export function normalizeSelectedContextFiles(files = []) {
     };
   });
   return normalized;
+}
+
+export function selectedContextFileMetadata(files = []) {
+  return normalizeSelectedContextFiles(files).map((file) => ({
+    name: file.name,
+    size: file.size,
+    sha256: file.sha256,
+  }));
+}
+
+function receiptFileMetadata(files = []) {
+  if (!Array.isArray(files)) return [];
+  return files.slice(0, MAX_CONTEXT_FILES).map((source) => {
+    const file = source && typeof source === 'object' ? source : {};
+    return {
+      name: basename(file.name),
+      size: numeric(file.size),
+      sha256: String(file.sha256 || '').trim().toLowerCase().slice(0, 128),
+    };
+  }).filter((file) => file.name);
+}
+
+export function createContextReceipt({
+  at = Date.now(),
+  turnNumber = 0,
+  provider = '',
+  label = '',
+  policy = CONTEXT_FILE_POLICIES.EVERY_TURN,
+  mode = 'attachment',
+  attachmentConfirmed = false,
+  clearedAfterTurn = false,
+  clearedAt = 0,
+  files = [],
+} = {}) {
+  return {
+    at: numeric(at, Date.now()),
+    turnNumber: numeric(turnNumber),
+    provider: String(provider || '').slice(0, 40),
+    label: String(label || provider || 'AI').slice(0, 80),
+    policy: normalizeContextFilePolicy(policy),
+    mode: mode === 'inline-fallback' ? 'inline-fallback' : 'attachment',
+    attachmentConfirmed: Boolean(attachmentConfirmed),
+    clearedAfterTurn: Boolean(clearedAfterTurn),
+    clearedAt: numeric(clearedAt),
+    files: receiptFileMetadata(files),
+  };
+}
+
+export function normalizeContextReceipt(receipt) {
+  if (!receipt || typeof receipt !== 'object') return null;
+  return createContextReceipt(receipt);
+}
+
+export function applyContextGuardAfterTurn(meeting, now = Date.now()) {
+  if (!meeting || normalizeContextFilePolicy(meeting.contextFilePolicy) !== CONTEXT_FILE_POLICIES.NEXT_TURN || !meeting.selectedFiles?.length) {
+    return meeting;
+  }
+  return {
+    ...meeting,
+    selectedFiles: [],
+    contextReceipt: meeting.contextReceipt
+      ? normalizeContextReceipt({ ...meeting.contextReceipt, clearedAfterTurn: true, clearedAt: now })
+      : null,
+  };
 }
 
 function languageFor(name) {

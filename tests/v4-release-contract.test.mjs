@@ -8,7 +8,7 @@ const root = fileURLToPath(new URL('../', import.meta.url));
 test('v4 release identifies itself and documents coordination features', () => {
   const manifest = JSON.parse(fs.readFileSync(`${root}/manifest.json`, 'utf8'));
   const readme = fs.readFileSync(`${root}/README.md`, 'utf8');
-  assert.equal(manifest.version, '4.2.0');
+  assert.equal(manifest.version, '4.3.0');
   assert.match(readme, /Participant roles/i);
   assert.match(readme, /Session templates/i);
   assert.match(readme, /Loop Guard/i);
@@ -19,19 +19,21 @@ test('v4.1 release documents the Blank-Slate Room workflow and packages its doma
   const manifest = fs.readFileSync(`${root}/manifest.json`, 'utf8');
   const readme = fs.readFileSync(`${root}/README.md`, 'utf8');
   const packer = fs.readFileSync(`${root}/scripts/package-extension.mjs`, 'utf8');
-  assert.match(manifest, /"version":\s*"4\.2\.0"/);
+  assert.match(manifest, /"version":\s*"4\.3\.0"/);
   for (const marker of [/Room/, /Playbook/, /Run Budget/, /@AI/, /Reports/]) assert.match(readme, marker);
   for (const file of ['workspace-engine.mjs', 'playbook-engine.mjs', 'run-engine.mjs', 'report-engine.mjs', 'mention-router.mjs']) {
     assert.match(packer, new RegExp(file.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
   }
 });
 
-test('v4.2 release documents Context Shelf and packages its file-context module', () => {
+test('v4.3 release documents Context Guard and packages its file-context module', () => {
   const manifest = fs.readFileSync(`${root}/manifest.json`, 'utf8');
   const readme = fs.readFileSync(`${root}/README.md`, 'utf8');
   const packer = fs.readFileSync(`${root}/scripts/package-extension.mjs`, 'utf8');
-  assert.match(manifest, /"version":\s*"4\.2\.0"/);
+  assert.match(manifest, /"version":\s*"4\.3\.0"/);
   assert.match(readme, /Context Shelf/);
+  assert.match(readme, /Context Guard/);
+  assert.match(readme, /Next turn only/);
   assert.match(readme, /local text files/i);
   assert.match(packer, /file-context\.mjs/);
 });

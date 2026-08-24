@@ -7,7 +7,9 @@ import {
   safeExportFilename,
 } from './transcript-export.mjs';
 import {
+  CONTEXT_FILE_POLICIES,
   MAX_CONTEXT_FILE_CHARS,
+  normalizeContextFilePolicy,
   normalizeSelectedContextFiles,
 } from './file-context.mjs';
 
@@ -27,7 +29,7 @@ const SESSION_OPTIONS = [
 const els = {
   meetingTitle: $('meetingTitle'), meetingStatus: $('meetingStatus'), participantCount: $('participantCount'), participants: $('participants'),
   roomSelect: $('roomSelect'), createRoom: $('createRoom'), playbookPicker: $('playbookPicker'), playbookHint: $('playbookHint'),
-  contextFilePicker: $('contextFilePicker'), selectContextFiles: $('selectContextFiles'), clearContextFiles: $('clearContextFiles'), contextFiles: $('contextFiles'), contextFileCount: $('contextFileCount'),
+  contextFilePicker: $('contextFilePicker'), selectContextFiles: $('selectContextFiles'), clearContextFiles: $('clearContextFiles'), contextFiles: $('contextFiles'), contextFileCount: $('contextFileCount'), contextFilePolicy: $('contextFilePolicy'), contextPolicyHint: $('contextPolicyHint'), contextReceipt: $('contextReceipt'),
   addParticipant: $('addParticipant'), refreshTabs: $('refreshTabs'), transcript: $('transcript'), turnCounter: $('turnCounter'), exportMarkdown: $('exportMarkdown'), exportJson: $('exportJson'), composer: $('composer'),
   exportText: $('exportText'), exportReportMarkdown: $('exportReportMarkdown'), exportReportText: $('exportReportText'),
   interactionMode: $('interactionMode'), interactiveMode: $('interactiveMode'), autonomousMode: $('autonomousMode'), joinConversation: $('joinConversation'), modeHint: $('modeHint'),
@@ -247,6 +249,44 @@ function renderContextFiles() {
   }
 }
 
+function renderContextReceipt() {
+  const receipt = meeting?.contextReceipt;
+  els.contextReceipt.replaceChildren();
+  if (!receipt) {
+    const empty = document.createElement('div');
+    empty.className = 'context-receipt-empty';
+    empty.textContent = 'No verified file handoff yet. The next AI turn will leave a receipt here.';
+    els.contextReceipt.append(empty);
+    return;
+  }
+  const card = document.createElement('article');
+  card.className = 'context-receipt-card';
+  const heading = document.createElement('div');
+  heading.className = 'context-receipt-heading';
+  const title = document.createElement('strong');
+  title.textContent = `Last handoff → ${providerLabel(receipt.provider)} · Turn ${receipt.turnNumber}`;
+  const status = document.createElement('span');
+  status.className = 'context-receipt-status';
+  status.textContent = receipt.mode === 'inline-fallback'
+    ? 'Inline fallback sent'
+    : (receipt.attachmentConfirmed ? 'Attachment confirmed' : 'Attachment dispatched · receipt unconfirmed');
+  heading.append(title, status);
+  const meta = document.createElement('div');
+  meta.className = 'context-receipt-meta';
+  const scope = receipt.policy === CONTEXT_FILE_POLICIES.NEXT_TURN ? 'next turn only' : 'every turn';
+  meta.textContent = `${receipt.files?.length || 0} file(s) · ${scope} · ${timeLabel(receipt.at)}`
+    + (receipt.clearedAfterTurn ? ' · cleared after this turn' : '');
+  const files = document.createElement('div');
+  files.className = 'context-receipt-files';
+  for (const file of receipt.files || []) {
+    const row = document.createElement('span');
+    row.textContent = `${file.name} · sha ${String(file.sha256 || 'unavailable').slice(0, 12)}`;
+    files.append(row);
+  }
+  card.append(heading, meta, files);
+  els.contextReceipt.append(card);
+}
+
 function renderSettings() {
   const s = meeting.settings || {};
   const session = meeting.session || {};
@@ -328,11 +368,16 @@ function renderControls() {
   els.selectContextFiles.disabled = !contextEditable;
   els.contextFilePicker.disabled = !contextEditable;
   els.clearContextFiles.disabled = !contextEditable || !meeting.selectedFiles?.length;
+  els.contextFilePolicy.value = normalizeContextFilePolicy(meeting.contextFilePolicy);
+  els.contextFilePolicy.disabled = !contextEditable;
+  els.contextPolicyHint.textContent = els.contextFilePolicy.value === CONTEXT_FILE_POLICIES.NEXT_TURN
+    ? 'Files clear after the next verified turn.'
+    : 'Files stay selected for every turn.';
 }
 
 function render() {
   if (!meeting) return;
-  renderWorkspace(); renderControls(); renderParticipants(); renderContextFiles(); renderTranscript(); renderActivity(); renderSettings(); renderAttention();
+  renderWorkspace(); renderControls(); renderParticipants(); renderContextFiles(); renderContextReceipt(); renderTranscript(); renderActivity(); renderSettings(); renderAttention();
 }
 
 async function refreshTabs(showNotice = true) {
@@ -449,6 +494,16 @@ async function selectContextFiles(event) {
   finally { event.target.value = ''; }
 }
 
+async function setContextPolicy() {
+  try {
+    await call('SET_CONTEXT_POLICY', { policy: els.contextFilePolicy.value });
+    render();
+    notice(els.contextFilePolicy.value === CONTEXT_FILE_POLICIES.NEXT_TURN
+      ? 'Context Guard will clear files after the next verified turn.'
+      : 'Context Guard will keep files active for every turn.');
+  } catch (e) { notice(e.message, true); }
+}
+
 function downloadText(filename, content, mimeType) {
   const url = URL.createObjectURL(new Blob([content], { type: `${mimeType};charset=utf-8` }));
   const anchor = document.createElement('a');
@@ -496,6 +551,7 @@ els.sendUserMessage.addEventListener('click', sendComposer);
 els.composer.addEventListener('keydown', (e) => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); sendComposer(); } });
 els.selectContextFiles.addEventListener('click', () => els.contextFilePicker.click());
 els.contextFilePicker.addEventListener('change', selectContextFiles);
+els.contextFilePolicy.addEventListener('change', setContextPolicy);
 els.clearContextFiles.addEventListener('click', async () => {
   try { await call('SET_CONTEXT_FILES', { files: [] }); render(); notice('Context Shelf cleared.'); }
   catch (e) { notice(e.message, true); }

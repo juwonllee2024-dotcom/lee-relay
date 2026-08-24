@@ -36,7 +36,14 @@ import {
   buildAutonomousFallbackInlinePrompt,
   buildFallbackInlinePrompt,
 } from './context-engine.mjs';
-import { normalizeSelectedContextFiles } from './file-context.mjs';
+import {
+  CONTEXT_FILE_POLICIES,
+  applyContextGuardAfterTurn,
+  createContextReceipt,
+  normalizeContextFilePolicy,
+  normalizeContextReceipt,
+  normalizeSelectedContextFiles,
+} from './file-context.mjs';
 import { createBackgroundTabController } from './background-tab-controller.mjs';
 import {
   addRoom,
@@ -187,6 +194,8 @@ async function getMeeting() {
       interactionMode: normalizeInteractionMode(active.interactionMode),
       topicText: normalizeTopicText(active.topicText),
       selectedFiles: Array.isArray(active.selectedFiles) ? active.selectedFiles : [],
+      contextFilePolicy: normalizeContextFilePolicy(active.contextFilePolicy),
+      contextReceipt: normalizeContextReceipt(active.contextReceipt),
       activeRun: active.activeRun || session[ACTIVE_RUN_KEY] || null,
     };
     if (!session[ACTIVE_RUNTIME_KEY]) await chrome.storage.session.set({ [ACTIVE_RUNTIME_KEY]: next });
@@ -206,6 +215,8 @@ async function getMeeting() {
     activeTransaction: null,
     activeRun: restored.activeRun || null,
     selectedFiles: [],
+    contextFilePolicy: normalizeContextFilePolicy(restored.contextFilePolicy),
+    contextReceipt: null,
     participants: (restored.participants || []).map((p) => ({ ...p, tabId: null, url: '', connectionState: 'DISCONNECTED', turnState: 'WAITING' })),
   });
   await chrome.storage.session.set({ [ACTIVE_RUNTIME_KEY]: meeting, [ACTIVE_RUN_KEY]: meeting.activeRun || null });
@@ -247,6 +258,7 @@ async function newMeeting(options = {}) {
     settings: options.settings || {},
     session: options.session || {},
     loopGuard: options.loopGuard || {},
+    contextFilePolicy: options.contextFilePolicy,
     playbookId: options.playbookId || options.session?.templateId || 'freeform',
   });
   let workspace = await readWorkspace(current);
@@ -614,6 +626,19 @@ async function executeTurn(participantId) {
     });
     if (!sent?.ok || !sent.sendActionExecuted) throw new Error(sent?.error || 'Send action failed.');
     tx = { ...tx, sendActionExecuted: true, inputPrimed: Boolean(sent.inputPrimed) };
+    if (contextPlan.selectedFiles?.length) {
+      const receipt = createContextReceipt({
+        provider: participant.provider,
+        label: participant.label,
+        turnNumber: tx.turnNumber,
+        policy: meeting.contextFilePolicy,
+        mode: contextPlan.mode === 'fallback-inline' ? 'inline-fallback' : 'attachment',
+        attachmentConfirmed: Boolean(tx.contextAttachmentConfirmed),
+        files: contextPlan.selectedFiles,
+      });
+      meeting = { ...meeting, contextReceipt: receipt };
+      meeting = withActivity(meeting, `Context Guard receipt: ${receipt.mode} sent to ${participant.label} (${receipt.files.length} file(s)).`, { stage: 'CONTEXT_RECEIPT', participantId: participant.id, transactionId: tx.transactionId });
+    }
 
     tx = transitionTransaction(tx, 'VERIFYING_DELIVERY');
     meeting = { ...meeting, activeTransaction: tx };
@@ -807,6 +832,11 @@ async function completeResponse(message, senderTabId) {
     deliveryStatus: 'CONFIRMED', responseStatus: 'CONFIRMED', transactionId: tx.transactionId,
   });
   meeting = { ...meeting, currentTurn: meeting.currentTurn + 1, activeTransaction: null };
+  const guardedMeeting = applyContextGuardAfterTurn(meeting);
+  if (guardedMeeting !== meeting) {
+    meeting = guardedMeeting;
+    meeting = withActivity(meeting, 'Context Guard cleared selected files after the verified turn.', { stage: 'CONTEXT_CLEARED', participantId: participant.id, transactionId: tx.transactionId });
+  }
   const previousSession = meeting.session;
   const nextSession = recordSessionTurn(previousSession);
   const currentPhase = currentSessionPhase(previousSession);
@@ -1087,10 +1117,20 @@ async function handleCommand(message, sender) {
       let m = await getMeeting();
       if (m.status === 'LIVE') throw new Error('Pause the meeting before changing Context Shelf files.');
       const selectedFiles = normalizeSelectedContextFiles(message.files || []);
-      m = { ...m, selectedFiles };
+      m = { ...m, selectedFiles, contextReceipt: null };
       m = withActivity(m, selectedFiles.length
         ? `Context Shelf updated: ${selectedFiles.map((file) => file.name).join(', ')}.`
         : 'Context Shelf cleared.');
+      return { ok: true, meeting: await saveMeeting(m) };
+    }
+    case 'SET_CONTEXT_POLICY': {
+      let m = await getMeeting();
+      if (m.status === 'LIVE' || m.activeTransaction) throw new Error('Pause the meeting and finish the active turn before changing Context Guard scope.');
+      const policy = normalizeContextFilePolicy(message.policy);
+      m = { ...m, contextFilePolicy: policy };
+      m = withActivity(m, policy === CONTEXT_FILE_POLICIES.NEXT_TURN
+        ? 'Context Guard: selected files will clear after the next verified turn.'
+        : 'Context Guard: selected files stay active for every turn.');
       return { ok: true, meeting: await saveMeeting(m) };
     }
     case 'SET_INTERACTION_MODE': {

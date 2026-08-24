@@ -80,6 +80,20 @@ button { cursor: pointer; }
 .context-file-remove:hover { color: var(--bad); }
 .context-file-meta { color: var(--soft); font-size: 9px; }
 .context-file-preview { margin: 0; max-height: 62px; overflow: hidden; white-space: pre-wrap; overflow-wrap: anywhere; color: #9ca5b4; font: 9px/1.4 ui-monospace, SFMono-Regular, Consolas, monospace; }
+.context-policy-wrap { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 9px; padding: 8px; border: 1px solid color-mix(in srgb,var(--accent) 20%,var(--border)); border-radius: 10px; background: rgba(0,0,0,.1); }
+.context-policy-wrap > span { display: grid; gap: 2px; min-width: 0; }
+.context-policy-wrap strong { color: #dfe3ea; font-size: 10px; }
+.context-policy-wrap small { color: var(--soft); font-size: 9px; line-height: 1.35; }
+.context-policy-wrap .control-select { width: auto; min-width: 112px; padding: 6px 7px; font-size: 9px; }
+.context-receipt { margin-top: 8px; }
+.context-receipt-empty { color: var(--soft); font-size: 9px; line-height: 1.4; }
+.context-receipt-card { display: grid; gap: 4px; padding: 8px; border: 1px solid color-mix(in srgb,var(--good) 28%,var(--border)); border-radius: 10px; background: color-mix(in srgb,var(--good) 4%,transparent); }
+.context-receipt-heading { display: grid; gap: 3px; }
+.context-receipt-heading strong { color: #e3f2dc; font-size: 10px; }
+.context-receipt-status { color: var(--good); font-size: 9px; font-weight: 750; }
+.context-receipt-meta { color: var(--soft); font-size: 9px; line-height: 1.35; }
+.context-receipt-files { display: grid; gap: 2px; color: #aeb7c7; font: 9px/1.35 ui-monospace, SFMono-Regular, Consolas, monospace; }
+.context-receipt-files span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .context-shelf .icon-button { width: auto; padding: 0 8px; font-size: 9px; }
 .attention-strip { padding: 11px; border: 1px solid color-mix(in srgb,var(--warn) 40%,transparent); border-radius: 14px; background: color-mix(in srgb,var(--warn) 7%,var(--panel)); }
 .attention-copy { display: grid; gap: 3px; margin-bottom: 9px; }

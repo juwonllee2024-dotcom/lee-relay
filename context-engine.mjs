@@ -1,5 +1,5 @@
 import { buildAutonomousCompactPrompt, buildCompactRelayPrompt, normalizeText } from './relay-core.mjs';
-import { buildSelectedFilesBlock, normalizeSelectedContextFiles } from './file-context.mjs';
+import { buildSelectedFilesBlock, normalizeSelectedContextFiles, selectedContextFileMetadata } from './file-context.mjs';
 
 export const PROVIDER_CONTEXT_LIMITS = Object.freeze({
   copilot: Object.freeze({ inlineMaxChars: 5000, compactMaxChars: 8000, fallbackMaxChars: 7400, fileSwitchChars: 8000, maxFileChars: 160000 }),
@@ -323,6 +323,7 @@ export function buildAdaptiveContextPlan({
       mode: 'file',
       promptText,
       contextFile,
+      selectedFiles: selectedContextFileMetadata(selected),
       fullContextChars: compactLength(clean) + selected.reduce((sum, file) => sum + file.text.length, 0),
       omittedEntries: 0,
       selectedFileCount: selected.length,
@@ -420,6 +421,7 @@ export function buildAutonomousContextPlan({
       mode: 'file',
       promptText,
       contextFile,
+      selectedFiles: selectedContextFileMetadata(selected),
       fullContextChars: compactLength(clean) + selected.reduce((sum, file) => sum + file.text.length, 0),
       omittedEntries: 0,
       selectedFileCount: selected.length,

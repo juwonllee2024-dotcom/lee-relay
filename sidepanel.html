@@ -46,10 +46,18 @@
         <div><span class="eyebrow">CONTEXT SHELF</span><span id="contextFileCount" class="count-label">0 / 5</span></div>
         <button id="clearContextFiles" class="icon-button" type="button" title="Clear selected local files">Clear</button>
       </div>
-      <p class="context-shelf-copy">Choose exact local text files for the next AI turn. Lee Relay shows the selection, sends it only through the provider tab, and never uploads it to a Lee Relay server.</p>
+      <p class="context-shelf-copy">Choose exact local text files. Context Guard lets you keep them for every turn or clear them after one verified handoff. Contents stay in the active session and never upload to a Lee Relay server.</p>
       <input id="contextFilePicker" type="file" multiple hidden accept=".txt,.md,.markdown,.json,.js,.mjs,.ts,.tsx,.py,.css,.html,.xml,.yaml,.yml,.csv,.sql,.log,text/*">
       <button id="selectContextFiles" class="select-context-button" type="button">Select local files</button>
+      <label class="context-policy-wrap" for="contextFilePolicy">
+        <span><strong>Context Guard</strong><small id="contextPolicyHint">Files stay selected for every turn.</small></span>
+        <select id="contextFilePolicy" class="control-select" aria-label="Context file scope">
+          <option value="every-turn">Every turn</option>
+          <option value="next-turn">Next turn only</option>
+        </select>
+      </label>
       <div id="contextFiles" class="context-files" aria-live="polite"></div>
+      <div id="contextReceipt" class="context-receipt" aria-live="polite"></div>
     </section>
 
     <section id="attentionStrip" class="attention-strip" hidden>
