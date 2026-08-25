@@ -1,5 +1,19 @@
 # Lee Relay Bot v4.3.0
 
+![Lee Relay logo](assets/lee-relay-logo.png)
+
+Lee Relay is a browser-native multi-AI meeting room: it coordinates the AI tabs you already use, keeps the shared meeting state locally, and does not require provider API keys.
+
+## Why Lee Relay is different
+
+- **It relays real provider tabs, not synthetic API personas.** ChatGPT, Claude, Gemini, and Copilot keep their normal signed-in sessions and browser UI.
+- **Background operation is a first-class feature.** The relay observes provider DOM changes and keeps verified turns moving while Gemini or Copilot is in another tab, without stealing foreground focus.
+- **It treats delivery as a transaction.** A click is not accepted as proof that a prompt was delivered. Lee Relay verifies delivery and response correlation, avoids automatic duplicate sends, and exposes Retry / Skip / Reconnect when recovery is not safe.
+- **It turns autonomy into a bounded workflow.** Rooms, Playbooks, Runs, Reports, `@AI` handoffs, Run Budget, Loop Guard, and Context Guard make long Full Auto sessions inspectable and stoppable.
+- **It stays local-first for meeting data.** Durable rooms, transcripts, reports, and selected context-file contents are handled in the browser; selected file handoffs expose only a receipt and short SHA-256 values in the UI.
+
+Simple tab macros click and hope; API-only routers replace the provider UI. Lee Relay's differentiator is the verified browser relay between those two extremes.
+
 ## v4.1 Blank-Slate workflow
 
 v4.1 keeps the verified v4.0.1 provider relay and presents the product as one simple flow:

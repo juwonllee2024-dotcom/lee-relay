@@ -6,6 +6,7 @@ import path from 'node:path';
 import {
   PACKAGE_FILES,
   buildArchiveBuffer,
+  BINARY_PACKAGE_FILES,
   createZipBuffer,
   packageExtension,
 } from '../scripts/package-extension.mjs';
@@ -16,7 +17,9 @@ async function fixtureRoot(version = '9.9.9', lineEnding = '\n') {
   for (const name of PACKAGE_FILES) {
     const filePath = path.join(root, name);
     await fs.promises.mkdir(path.dirname(filePath), { recursive: true });
-    const fixture = `fixture:${name}\n`.replaceAll('\n', lineEnding);
+    const fixture = BINARY_PACKAGE_FILES.has(name)
+      ? Buffer.from(`binary-fixture:${name}`)
+      : Buffer.from(`fixture:${name}\n`.replaceAll('\n', lineEnding));
     await fs.promises.writeFile(
       filePath,
       name === 'manifest.json'

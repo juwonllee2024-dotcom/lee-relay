@@ -3,6 +3,11 @@
   "name": "Lee Relay Bot",
   "version": "4.3.0",
   "description": "Persistent multi-AI Rooms with Playbooks, bounded Runs, Reports, Context Guard, @AI handoffs, and verified background-tab relay.",
+  "icons": {
+    "16": "assets/lee-relay-logo.png",
+    "48": "assets/lee-relay-logo.png",
+    "128": "assets/lee-relay-logo.png"
+  },
   "minimum_chrome_version": "120",
   "permissions": [
     "tabs",
@@ -26,7 +31,12 @@
     "type": "module"
   },
   "action": {
-    "default_title": "Open Lee Relay"
+    "default_title": "Open Lee Relay",
+    "default_icon": {
+      "16": "assets/lee-relay-logo.png",
+      "48": "assets/lee-relay-logo.png",
+      "128": "assets/lee-relay-logo.png"
+    }
   },
   "side_panel": {
     "default_path": "sidepanel.html"

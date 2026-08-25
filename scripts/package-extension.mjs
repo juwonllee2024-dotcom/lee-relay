@@ -35,7 +35,12 @@ export const PACKAGE_FILES = [
   'PRIVACY.md',
   'SECURITY.md',
   'CHANGELOG.md',
+  'assets/lee-relay-logo.png',
 ];
+
+export const BINARY_PACKAGE_FILES = new Set([
+  'assets/lee-relay-logo.png',
+]);
 
 const LOCAL_FILE_SIGNATURE = 0x04034b50;
 const CENTRAL_FILE_SIGNATURE = 0x02014b50;
@@ -67,6 +72,10 @@ function fileBuffer(data) {
 
 function normalizedTextFile(filePath) {
   return Buffer.from(fs.readFileSync(filePath, 'utf8').replaceAll('\r\n', '\n').replaceAll('\r', '\n'));
+}
+
+function packageFileData(filePath, name) {
+  return BINARY_PACKAGE_FILES.has(name) ? fs.readFileSync(filePath) : normalizedTextFile(filePath);
 }
 
 function writeLocalHeader(name, data) {
@@ -167,7 +176,7 @@ export function buildArchiveBuffer(rootDir) {
       throw new Error(`package path escapes workspace: ${name}`);
     }
     if (!fs.statSync(filePath).isFile()) throw new Error(`required package file is not a file: ${name}`);
-    return { name, data: normalizedTextFile(filePath) };
+    return { name, data: packageFileData(filePath, name) };
   });
   if (JSON.parse(entries[0].data.toString('utf8')).version !== manifest.version) {
     throw new Error('manifest version changed while packaging');
