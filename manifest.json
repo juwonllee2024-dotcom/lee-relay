@@ -1,0 +1,51 @@
+{
+  "manifest_version": 3,
+  "name": "Lee Relay Bot",
+  "version": "4.1.5",
+  "description": "Persistent multi-AI Rooms with Playbooks, bounded Runs, Reports, @AI handoffs, and verified background-tab relay.",
+  "minimum_chrome_version": "120",
+  "permissions": [
+    "tabs",
+    "storage",
+    "scripting",
+    "downloads",
+    "activeTab",
+    "alarms",
+    "sidePanel",
+    "debugger"
+  ],
+  "host_permissions": [
+    "https://gemini.google.com/*",
+    "https://copilot.microsoft.com/*",
+    "https://chatgpt.com/*",
+    "https://chat.openai.com/*",
+    "https://claude.ai/*"
+  ],
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "action": {
+    "default_title": "Open Lee Relay"
+  },
+  "side_panel": {
+    "default_path": "sidepanel.html"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://gemini.google.com/*",
+        "https://copilot.microsoft.com/*",
+        "https://chatgpt.com/*",
+        "https://chat.openai.com/*",
+        "https://claude.ai/*"
+      ],
+      "js": [
+        "chatgpt-input-engine.js",
+        "response-capture-policy.js",
+        "content.js"
+      ],
+      "run_at": "document_idle"
+    }
+  ]
+}

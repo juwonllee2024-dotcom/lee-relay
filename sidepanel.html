@@ -1,0 +1,191 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Lee Relay</title>
+  <link rel="stylesheet" href="sidepanel.css">
+</head>
+<body>
+  <main class="app-shell">
+    <header class="topbar">
+      <div>
+        <div class="brand-row"><span class="brand-mark">LR</span><span class="brand">LEE RELAY</span></div>
+        <input id="meetingTitle" class="meeting-title" value="새 AI 회의" aria-label="회의 제목" data-i18n-value="meeting.defaultTitle" data-i18n-aria-label="aria.meetingTitle">
+      </div>
+      <div class="header-actions">
+        <div class="language-control">
+          <button id="languageButton" class="icon-button language-button" type="button" aria-haspopup="menu" aria-expanded="false" title="언어" aria-label="언어" data-i18n-title="language.menu" data-i18n-aria-label="language.menu">🌐</button>
+          <div id="languageMenu" class="language-menu" role="menu" hidden>
+            <button type="button" role="menuitem" data-language="ko" data-i18n="language.ko">한국어</button>
+            <button type="button" role="menuitem" data-language="en" data-i18n="language.en">English</button>
+            <button type="button" role="menuitem" data-language="ja" data-i18n="language.ja">日本語</button>
+          </div>
+        </div>
+        <div id="meetingStatus" class="status-badge" data-status="READY">READY</div>
+      </div>
+    </header>
+
+    <section class="workspace-strip" aria-label="Workspace">
+      <div class="workspace-room">
+        <span class="eyebrow" data-i18n="workspace.room">ROOM</span>
+        <select id="roomSelect" class="workspace-select" aria-label="저장된 방" data-i18n-aria-label="aria.savedRoom"></select>
+        <button id="createRoom" class="workspace-new" type="button" data-i18n="workspace.new">＋ 새 방</button>
+      </div>
+      <div class="workspace-playbook">
+        <span class="eyebrow" data-i18n="workspace.playbook">PLAYBOOK</span>
+        <select id="playbookPicker" class="workspace-select" aria-label="활성 플레이북" data-i18n-aria-label="aria.activePlaybook"></select>
+        <small id="playbookHint">Freeform</small>
+      </div>
+    </section>
+
+    <section class="participants-section">
+      <div class="section-heading">
+        <div>
+          <span class="eyebrow" data-i18n="participants.label">PARTICIPANTS</span>
+          <span id="participantCount" class="count-label">2 / 6</span>
+        </div>
+        <button id="refreshTabs" class="icon-button" type="button" title="열린 AI 탭 새로고침" data-i18n-title="button.refreshTabs" data-i18n-aria-label="button.refreshTabs">↻</button>
+      </div>
+      <div id="participants" class="participants-grid" aria-live="polite"></div>
+      <button id="addParticipant" class="add-participant" type="button"><span>＋</span> <span data-i18n="button.addAi">AI 추가</span></button>
+    </section>
+
+    <details id="statusCenterPanel" class="drawer">
+      <summary><span data-i18n="statusCenter.title">탭 상태센터</span> <span id="statusCenterSummary" class="count-label">0/0</span></summary>
+      <div class="drawer-body">
+        <div id="statusCenterList" class="status-center-list" aria-live="polite"></div>
+      </div>
+    </details>
+
+    <section id="attentionStrip" class="attention-strip" hidden>
+      <div class="attention-copy">
+        <strong data-i18n="attention.title">확인이 필요합니다</strong>
+        <span id="attentionMessage" data-i18n="attention.message">회의 턴을 복구해야 합니다.</span>
+      </div>
+      <div class="recovery-actions">
+        <button id="retryTransaction" type="button" data-i18n="button.retry">재시도</button>
+        <button id="skipParticipant" type="button" data-i18n="button.skip">건너뛰기</button>
+        <button id="reconnectParticipant" type="button" data-i18n="button.reconnect">다시 연결</button>
+      </div>
+    </section>
+
+    <section class="meeting-section">
+      <div class="section-heading transcript-heading">
+        <div><span class="eyebrow" data-i18n="meeting.label">MEETING</span><span id="turnCounter" class="count-label">0턴</span></div>
+        <div class="transcript-actions" aria-label="회의 기록 내보내기" data-i18n-aria-label="export.transcript">
+          <button id="exportMarkdown" class="export-button" type="button" title="Markdown 기록 다운로드" data-i18n-title="export.markdown">MD</button>
+          <button id="exportJson" class="export-button" type="button" title="JSON 기록 다운로드" data-i18n-title="export.json">JSON</button>
+          <button id="exportText" class="export-button" type="button" title="텍스트 기록 다운로드" data-i18n-title="export.text">TXT</button>
+          <button id="exportReportMarkdown" class="export-button" type="button" title="실행 보고서 Markdown 다운로드" data-i18n-title="export.reportMarkdown">REPORT</button>
+          <button id="exportReportText" class="export-button" type="button" title="실행 보고서 텍스트 다운로드" data-i18n-title="export.reportText">R-TXT</button>
+        </div>
+      </div>
+      <div id="transcript" class="transcript" aria-live="polite">
+        <div class="empty-state">
+          <div class="empty-icon">↔</div>
+          <strong data-i18n="empty.title">회의방이 준비되었습니다.</strong>
+          <span data-i18n="empty.description">AI 탭 두 개를 연결하고 주제를 입력한 뒤 회의를 시작하세요.</span>
+        </div>
+      </div>
+    </section>
+
+    <section class="composer-section">
+      <div id="interactionMode" class="mode-selector" role="group" aria-label="회의 모드" data-i18n-aria-label="mode.group">
+        <button id="interactiveMode" type="button" aria-pressed="true" data-i18n="mode.interactive">대화형</button>
+        <button id="autonomousMode" type="button" aria-pressed="false" data-i18n="mode.fullAuto">완전 자동</button>
+      </div>
+      <div id="modeHint" class="mode-hint" aria-live="polite"></div>
+      <label class="composer-wrap" for="composer">
+        <textarea id="composer" rows="3" placeholder="회의방에 말하기…" data-i18n-placeholder="composer.placeholder"></textarea>
+        <button id="sendUserMessage" class="send-button" type="button" title="회의에 보내기" data-i18n-title="button.sendToMeeting" data-i18n-aria-label="button.sendToMeeting">↑</button>
+      </label>
+      <div class="meeting-actions">
+        <button id="startMeeting" class="primary-button" type="button" data-i18n="button.start">회의 시작</button>
+        <button id="pauseMeeting" class="secondary-button" type="button" data-i18n="button.pause">일시정지</button>
+        <button id="joinConversation" class="secondary-button" type="button" hidden data-i18n="button.join">대화 참여</button>
+        <button id="endMeeting" class="danger-button" type="button" data-i18n="button.end">종료</button>
+      </div>
+      <div id="uiNotice" class="ui-notice" aria-live="polite"></div>
+    </section>
+
+    <details id="meetingControls" class="drawer">
+      <summary><span data-i18n="controls.title">회의 제어</span> <span>⌄</span></summary>
+      <div class="drawer-body controls-grid">
+        <label><span data-i18n="controls.maxAiTurns">최대 AI 턴 수</span>
+          <input id="maxTurns" type="number" min="0" value="20">
+          <small data-i18n="controls.unlimited">0 = 제한 없음</small>
+        </label>
+        <label><span data-i18n="controls.runTimeLimit">실행 시간 제한</span>
+          <div class="inline-field"><input id="maxDurationMinutes" type="number" min="0" value="30"><span data-i18n="controls.min">분</span></div>
+          <small data-i18n="controls.unlimited">0 = 제한 없음</small>
+        </label>
+        <label><span data-i18n="controls.runHandoffLimit">실행 전달 제한</span>
+          <input id="maxHops" type="number" min="0" value="20">
+          <small data-i18n="controls.unlimited">0 = 제한 없음</small>
+        </label>
+        <label><span data-i18n="controls.delayBetweenTurns">턴 사이 지연</span>
+          <div class="inline-field"><input id="delaySeconds" type="number" min="0" step="0.5" value="4"><span data-i18n="controls.sec">초</span></div>
+        </label>
+        <label><span data-i18n="controls.deliveryRetries">전달 재시도</span>
+          <input id="retryLimit" type="number" min="0" max="5" value="3">
+        </label>
+        <label><span data-i18n="controls.responseTimeout">응답 제한 시간</span>
+          <div class="inline-field"><input id="responseTimeout" type="number" min="30" step="10" value="120"><span data-i18n="controls.sec">초</span></div>
+        </label>
+        <label><span data-i18n="controls.sessionTemplate">세션 템플릿</span>
+          <select id="sessionTemplate" class="control-select" aria-label="세션 템플릿" data-i18n-aria-label="aria.sessionTemplate"></select>
+          <small id="sessionPhaseHint">Freeform discussion</small>
+        </label>
+        <label class="switch-row"><span><strong data-i18n="controls.smartRouting">스마트 라우팅</strong><small data-i18n="controls.smartRoutingHint">이름이 지정된 AI가 다음에 말할 수 있음</small></span><input id="smartRouting" type="checkbox" checked></label>
+        <label class="switch-row"><span><strong data-i18n="controls.screenshots">스크린샷</strong><small data-i18n="controls.screenshotsHint">확인된 AI 답변 저장</small></span><input id="captureScreenshots" type="checkbox"></label>
+        <label class="switch-row"><span><strong data-i18n="controls.loopGuardFullAuto">완전 자동 Loop Guard</strong><small data-i18n="controls.loopGuardFullAutoHint">폭주하는 AI 사이클 일시정지</small></span><input id="loopGuardEnabled" type="checkbox" checked></label>
+        <label class="switch-row"><span><strong data-i18n="controls.loopGuardInteractive">대화형 Loop Guard</strong><small data-i18n="controls.loopGuardInteractiveHint">선택적 안전 경계</small></span><input id="loopGuardInteractive" type="checkbox"></label>
+        <label><span data-i18n="controls.maxAutonomousHops">최대 자동 전달 수</span>
+          <input id="loopGuardMaxHops" type="number" min="0" value="20">
+          <small data-i18n="controls.disabled">0 = 사용 안 함</small>
+        </label>
+        <label><span data-i18n="controls.sameParticipantStreak">같은 참여자 연속 횟수</span>
+          <input id="loopGuardMaxSameSpeaker" type="number" min="0" value="3">
+          <small data-i18n="controls.disabled">0 = 사용 안 함</small>
+        </label>
+        <label><span data-i18n="controls.sameRouteStreak">같은 경로 연속 횟수</span>
+          <input id="loopGuardMaxSameRoute" type="number" min="0" value="6">
+          <small data-i18n="controls.disabled">0 = 사용 안 함</small>
+        </label>
+        <button id="clearTranscript" class="wide-quiet-button" type="button" data-i18n="controls.clearTranscript">회의 기록 지우기</button>
+        <button id="newMeeting" class="wide-quiet-button" type="button" data-i18n="controls.newMeeting">새 회의</button>
+      </div>
+    </details>
+
+    <details id="schedulePanel" class="drawer">
+      <summary><span data-i18n="schedule.title">예약 실행</span> <span id="scheduleNextSummary" class="count-label">예약 없음</span></summary>
+      <div class="drawer-body schedule-body">
+        <label class="switch-row schedule-toggle">
+          <span><strong data-i18n="schedule.enabled">예약 자동 실행</strong><small data-i18n="schedule.hint">Chrome이 실행 중인 다음 시간에 현재 방을 자동으로 시작합니다.</small></span>
+          <input id="scheduleEnabled" type="checkbox">
+        </label>
+        <div class="schedule-slot-grid">
+          <div class="schedule-slot">
+            <div class="schedule-slot-heading"><strong data-i18n="schedule.morning">아침</strong><label class="schedule-slot-toggle"><input id="scheduleMorningEnabled" type="checkbox"><span data-i18n="schedule.enabledShort">사용</span></label></div>
+            <input id="scheduleMorningTime" type="time" value="08:00" data-i18n-aria-label="aria.scheduleMorning" aria-label="아침 예약 시간">
+          </div>
+          <div class="schedule-slot">
+            <div class="schedule-slot-heading"><strong data-i18n="schedule.evening">저녁</strong><label class="schedule-slot-toggle"><input id="scheduleEveningEnabled" type="checkbox"><span data-i18n="schedule.enabledShort">사용</span></label></div>
+            <input id="scheduleEveningTime" type="time" value="20:00" data-i18n-aria-label="aria.scheduleEvening" aria-label="저녁 예약 시간">
+          </div>
+        </div>
+        <label class="schedule-field"><span data-i18n="schedule.mode">실행 모드</span><select id="scheduleMode" class="control-select"><option value="autonomous" data-i18n="schedule.mode.autonomous">Full Auto</option><option value="interactive" data-i18n="schedule.mode.interactive">대화형</option></select></label>
+        <label class="schedule-field"><span data-i18n="schedule.topic">예약 주제</span><input id="scheduleTopic" type="text" maxlength="240" data-i18n-placeholder="schedule.topicPlaceholder" placeholder="비워두면 현재 방 주제를 사용합니다."></label>
+        <div class="schedule-actions"><button id="saveSchedule" class="wide-quiet-button" type="button" data-i18n="schedule.save">예약 저장</button><select id="scheduleRunSlot" class="control-select" data-i18n-aria-label="aria.scheduleRunSlot" aria-label="예약 슬롯"><option value="morning" data-i18n="schedule.morning">아침</option><option value="evening" data-i18n="schedule.evening">저녁</option></select><button id="runScheduleNow" class="wide-quiet-button" type="button" data-i18n="schedule.runNow">지금 실행</button></div>
+      </div>
+    </details>
+
+    <details id="activityPanel" class="drawer activity-drawer">
+      <summary><span data-i18n="activity.title">활동</span> <span id="activityCount" class="count-label">0</span></summary>
+      <div id="activityLog" class="activity-log"></div>
+    </details>
+  </main>
+  <script type="module" src="sidepanel.js"></script>
+</body>
+</html>

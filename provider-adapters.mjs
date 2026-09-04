@@ -1,0 +1,72 @@
+export const PROVIDER_ADAPTERS = Object.freeze({
+  chatgpt: {
+    label: 'ChatGPT',
+    assistantSelectors: [
+      '[data-message-author-role="assistant"]',
+      '[data-testid^="conversation-turn-"] [data-message-author-role="assistant"]',
+      '.agent-turn [data-message-author-role="assistant"]',
+      '.agent-turn .markdown',
+    ],
+    userSelectors: [
+      '[data-message-author-role="user"]',
+      '[data-testid^="conversation-turn-"] [data-message-author-role="user"]',
+    ],
+    inputSelectors: ['[contenteditable="true"][role="textbox"]', '#prompt-textarea', 'textarea'],
+    sendButtonSelectors: ['button[data-testid="send-button"]', 'button[aria-label*="send" i]', 'button[aria-label*="메시지 보내기" i]'],
+    generatingSelectors: ['button[data-testid="stop-button"]', 'button[aria-label*="stop streaming" i]', 'button[aria-label*="stop generating" i]', 'button[aria-label*="중지" i]'],
+    streamingSelectors: ['[data-message-author-role="assistant"][data-is-streaming="true"]', '[data-testid^="conversation-turn-"] [data-is-streaming="true"]', '[data-is-streaming="true"]'],
+    fileInputSelectors: ['input[type="file"]'],
+    attachButtonSelectors: ['button[aria-label*="attach" i]', 'button[aria-label*="upload" i]', 'button[aria-label*="add file" i]', 'button[aria-label*="첨부" i]', 'button[aria-label*="업로드" i]', 'button[title*="attach" i]', 'button[data-testid*="attach" i]'],
+    responseQuietMs: 1800,
+    initialResponseQuietMs: 6000,
+  },
+  claude: {
+    label: 'Claude',
+    assistantSelectors: [
+      '.font-claude-response',
+      '[data-testid="assistant-message"]',
+      '.font-claude-message',
+      '.assistant-message',
+      '[data-testid*="assistant" i] .prose',
+      '[data-testid*="assistant" i]',
+      '[data-is-streaming] .font-claude-response',
+      '[data-is-streaming] .font-claude-message',
+      '[data-is-streaming] .prose',
+      '[data-test-render-count] .font-claude-response',
+      '[data-test-render-count] .font-claude-message',
+    ],
+    userSelectors: ['[data-testid="user-message"]', '[data-testid*="user" i] .prose', '[data-testid*="user" i]'],
+    inputSelectors: ['div[contenteditable="true"][role="textbox"]', 'div[contenteditable="true"]', 'textarea'],
+    sendButtonSelectors: ['button[aria-label*="send" i]', 'button[aria-label*="보내" i]', 'button[data-testid*="send" i]', 'button[title*="send" i]'],
+    generatingSelectors: ['[data-is-streaming="true"]', 'button[aria-label*="stop" i]', 'button[aria-label*="중지" i]', 'button[data-testid*="stop" i]'],
+    fileInputSelectors: ['input[type="file"]'],
+    attachButtonSelectors: ['button[aria-label*="attach" i]', 'button[aria-label*="upload" i]', 'button[aria-label*="add file" i]', 'button[aria-label*="첨부" i]', 'button[aria-label*="업로드" i]', 'button[title*="attach" i]', 'button[data-testid*="attach" i]'],
+    responseQuietMs: 2000,
+  },
+  gemini: {
+    label: 'Gemini',
+    assistantSelectors: ['model-response', 'response-container', '[data-test-id="model-response"]', '[data-testid="model-response"]', 'message-content', '.response-content', '.model-response-text', 'structured-content-container'],
+    userSelectors: ['user-query', '.query-text', 'user-query-content', '[data-message-author="user"]', '[data-test-id="user-query"]', '[data-testid="user-query"]', '.user-query'],
+    inputSelectors: ['div.ql-editor', 'rich-textarea [contenteditable="true"]', '[aria-label="Enter a prompt here"]', '[contenteditable="true"][role="textbox"]', 'textarea'],
+    sendButtonSelectors: ['button[aria-label="Send message"]', 'button[aria-label*="send" i]', '.send-button', 'button.send-button', 'button[aria-label*="보내" i]', 'button[title*="send" i]', 'button[data-testid*="send" i]', 'button[data-test-id*="send" i]'],
+    generatingSelectors: ['[aria-busy="true"]', 'button[aria-label*="stop" i]', 'button[aria-label*="중지" i]', '[data-test-id*="stop" i]', '[data-testid*="stop" i]'],
+    fileInputSelectors: ['input[type="file"]'],
+    attachButtonSelectors: ['button[aria-label*="attach" i]', 'button[aria-label*="upload" i]', 'button[aria-label*="add file" i]', 'button[aria-label*="add" i]', 'button[aria-label*="첨부" i]', 'button[aria-label*="업로드" i]', 'button[title*="upload" i]', 'button[data-test-id*="upload" i]'],
+    responseQuietMs: 2000,
+  },
+  copilot: {
+    label: 'Copilot',
+    assistantSelectors: ['[data-message-author-role="assistant"]', '[data-author="assistant"]', '[data-content="ai-message"]', '[data-testid*="assistant" i]', 'cib-message-group[source="bot"]', 'cib-message[type="bot"]'],
+    userSelectors: ['[data-message-author-role="user"]', '[data-author="user"]', '[data-content="user-message"]', 'cib-message-group[source="user"]', 'cib-message[type="user"]'],
+    inputSelectors: ['textarea', '[contenteditable="true"][role="textbox"]', 'div[contenteditable="true"]'],
+    sendButtonSelectors: ['button[aria-label*="send" i]', 'button[aria-label*="보내" i]', 'button[title*="send" i]', 'button[data-testid*="send" i]'],
+    generatingSelectors: ['button[aria-label*="stop" i]', 'button[aria-label*="중지" i]', 'button[data-testid*="stop" i]', '[data-content*="stop" i]'],
+    fileInputSelectors: ['input[type="file"]'],
+    attachButtonSelectors: ['button[aria-label*="attach" i]', 'button[aria-label*="upload" i]', 'button[aria-label*="add content" i]', 'button[aria-label*="add" i]', 'button[aria-label*="첨부" i]', 'button[aria-label*="업로드" i]', 'button[title*="attach" i]', 'button[data-testid*="attach" i]'],
+    responseQuietMs: 2000,
+  },
+});
+
+export function adapterFor(provider) {
+  return PROVIDER_ADAPTERS[provider] || null;
+}
