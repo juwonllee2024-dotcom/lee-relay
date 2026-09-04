@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Lee Relay Bot",
-  "version": "4.3.0",
+  "version": "4.3.1",
   "description": "Persistent multi-AI Rooms with Playbooks, bounded Runs, Reports, Context Guard, @AI handoffs, and verified background-tab relay.",
   "icons": {
     "16": "assets/lee-relay-logo.png",

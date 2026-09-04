@@ -1,4 +1,4 @@
-# Lee Relay Bot v4.3.0
+# Lee Relay Bot v4.3.1
 
 ![Lee Relay logo](assets/lee-relay-logo.png)
 
@@ -102,7 +102,7 @@ For Microsoft Copilot, file mode switches on well before its observed **10,240-c
 
 Requires Chrome 120 or later.
 
-1. Download `lee-relay-v4.3.0.zip` from the [v4.3.0 release](https://github.com/juwonllee2024-dotcom/lee-relay/releases/tag/v4.3.0) and unzip it into a new folder.
+1. Download `lee-relay-v4.3.1.zip` from the [v4.3.1 release](https://github.com/juwonllee2024-dotcom/lee-relay/releases/tag/v4.3.1) and unzip it into a new folder.
 2. Open `chrome://extensions`.
 3. Enable **Developer mode**.
 4. Choose **Load unpacked**.

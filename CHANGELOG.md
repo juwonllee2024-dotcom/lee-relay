@@ -1,5 +1,13 @@
 # Changelog
 
+## 4.3.1 — 2026-09-04
+
+### Fixed
+
+- ChatGPT context-file delivery now waits for the attachment to settle before attempting Send.
+- ChatGPT no longer falls back to form submission or Enter when its real Send control is unavailable.
+- A bounded failure leaves the turn recoverable and prevents partial or duplicate relay prompts.
+
 ## 4.3.0 — 2026-08-24
 
 ### Added

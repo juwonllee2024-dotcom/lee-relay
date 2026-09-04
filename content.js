@@ -370,6 +370,138 @@
     return false;
   }
 
+  function contextAttachmentBusy(fileName = '') {
+    const roots = getRoots(true);
+    const busyPattern = /(loading|uploading|processing|preparing|pending|queued|in[-_ ]?progress|busy|waiting|upload\s*in\s*progress|processing\s*file|첨부\s*(중|준비)|업로드\s*(중|준비)|파일\s*(처리|업로드)\s*(중|준비)|불러오는\s*(중|준비)|처리\s*(중|준비)|준비\s*(중|준비))/i;
+    const stateSelectors = [
+      '[aria-busy="true"]',
+      '[role="progressbar"]',
+      '[role="status"]',
+      '[aria-live="polite"]',
+      '[aria-live="assertive"]',
+      '[data-upload-state]',
+      '[data-file-state]',
+      '[data-attachment-state]',
+      '[data-testid*="upload" i]',
+      '[data-testid*="attachment" i]',
+      '[data-testid*="file" i]',
+    ].join(',');
+    for (const el of queryDeep(stateSelectors, roots)) {
+      if (!el?.isConnected) continue;
+      const role = String(el.getAttribute?.('role') || '').toLowerCase();
+      const ariaBusy = String(el.getAttribute?.('aria-busy') || '').toLowerCase();
+      const ariaLive = String(el.getAttribute?.('aria-live') || '').toLowerCase();
+      const state = [
+        el.getAttribute?.('data-state'),
+        el.getAttribute?.('data-status'),
+        el.getAttribute?.('data-upload-state'),
+        el.getAttribute?.('data-file-state'),
+        el.getAttribute?.('data-attachment-state'),
+      ].filter(Boolean).join(' ');
+      const text = `${el.getAttribute?.('aria-label') || ''} ${el.getAttribute?.('title') || ''} ${buttonText(el)} ${el.textContent || ''}`.replace(/\s+/g, ' ').trim();
+      const classState = String(el.className || '');
+      if (ariaBusy === 'true' || role === 'progressbar') return true;
+      if (busyPattern.test(state) || busyPattern.test(classState)) return true;
+      if ((role === 'status' || ariaLive === 'polite' || ariaLive === 'assertive') && busyPattern.test(text)) return true;
+    }
+
+    // Providers may put upload state on a wrapper around a named attachment.
+    // Check only a short ancestor chain; a generic Upload button is not busy.
+    if (fileName && contextFileVisible(fileName)) {
+      const candidates = queryDeep('[data-testid*="attachment" i],[data-test-id*="attachment" i],[class*="attachment" i],[class*="file-chip" i],[aria-label*=".txt" i]', roots);
+      for (const candidate of candidates) {
+        const text = `${buttonText(candidate)} ${candidate.textContent || ''}`;
+        if (!text.includes(fileName)) continue;
+        let node = candidate;
+        for (let depth = 0; node && depth < 4; depth += 1, node = node.parentElement) {
+          const state = [
+            node.getAttribute?.('aria-busy'),
+            node.getAttribute?.('data-state'),
+            node.getAttribute?.('data-status'),
+            node.getAttribute?.('data-upload-state'),
+            node.getAttribute?.('data-file-state'),
+          ].filter(Boolean).join(' ');
+          if (String(node.getAttribute?.('aria-busy') || '').toLowerCase() === 'true' || busyPattern.test(state) || busyPattern.test(String(node.className || ''))) return true;
+        }
+      }
+    }
+    return false;
+  }
+
+  async function waitForContextFileReady(fileName, { accepted = false, timeoutMs = 15000, intervalMs = 250, stableReads = 2 } = {}) {
+    const deadline = Date.now() + Math.max(1000, Number(timeoutMs) || 15000);
+    let acceptedSeen = Boolean(accepted);
+    let stable = 0;
+    let lastBusy = false;
+    while (Date.now() <= deadline) {
+      const visible = contextFileVisible(fileName);
+      const native = nativeFileInputHas(fileName);
+      acceptedSeen = acceptedSeen || visible || native;
+      lastBusy = contextAttachmentBusy(fileName);
+      if (acceptedSeen && !lastBusy) {
+        stable += 1;
+        if (stable >= Math.max(1, Number(stableReads) || 2)) {
+          return { ready: true, confirmed: Boolean(visible || native), accepted: acceptedSeen, busy: false, fileName };
+        }
+      } else {
+        stable = 0;
+      }
+      await new Promise((resolve) => setTimeout(resolve, intervalMs));
+    }
+    return {
+      ready: false,
+      confirmed: false,
+      accepted: acceptedSeen,
+      busy: lastBusy,
+      fileName,
+      reason: lastBusy
+        ? `${provider} is still processing the context file after the bounded wait.`
+        : `${provider} did not expose a settled context-file attachment after the bounded wait.`,
+    };
+  }
+
+  function clearNativeContextFile(fileName) {
+    if (!fileName) return;
+    for (const input of queryDeep('input[type="file"]', getRoots(true))) {
+      let matches = false;
+      try { matches = [...(input.files || [])].some((file) => file.name === fileName); } catch { matches = false; }
+      if (!matches) continue;
+      try {
+        input.value = '';
+        input.dispatchEvent(new Event('input', { bubbles: true, composed: true }));
+        input.dispatchEvent(new Event('change', { bubbles: true, composed: true }));
+      } catch { /* the provider may have detached the native input */ }
+    }
+  }
+
+  async function waitForChatgptSendReady(input, { timeoutMs = 12000, intervalMs = 150, stableReads = 2 } = {}) {
+    const deadline = Date.now() + Math.max(1000, Number(timeoutMs) || 12000);
+    let stable = 0;
+    let lastInput = input;
+    let lastBusy = false;
+    while (Date.now() <= deadline) {
+      lastInput = findInput() || lastInput;
+      const button = findSendButton(lastInput);
+      const attachmentInFlight = Boolean(transaction?.contextFileName && (transaction.contextFileAttached || transaction.contextFilePending));
+      lastBusy = Boolean(attachmentInFlight && contextAttachmentBusy(transaction.contextFileName));
+      if (button && !lastBusy) {
+        stable += 1;
+        if (stable >= Math.max(1, Number(stableReads) || 2)) return { ok: true, input: lastInput, button, busy: false };
+      } else {
+        stable = 0;
+      }
+      await new Promise((resolve) => setTimeout(resolve, intervalMs));
+    }
+    return {
+      ok: false,
+      input: lastInput,
+      busy: lastBusy,
+      reason: lastBusy
+        ? 'ChatGPT is still loading the context file; Send was not attempted.'
+        : 'ChatGPT Send is not available yet; Send was not attempted.',
+    };
+  }
+
   async function revealFileInput(composer) {
     let input = findFileInput();
     if (input) return input;
@@ -400,16 +532,32 @@
     if (!fileName || !/\.txt$/i.test(fileName)) throw new Error('Context attachment must be a .txt file.');
     if (!fileText) throw new Error('Context attachment is empty.');
     if (fileText.length > 512000) throw new Error('Context attachment is too large.');
+    if (transaction.contextFileAttached && transaction.contextFileName === fileName) {
+      return { attached: true, ready: true, confirmed: true, reused: true, fileName };
+    }
+    transaction.contextFileName = fileName;
+    transaction.contextFilePending = true;
     if (contextFileVisible(fileName) || nativeFileInputHas(fileName)) {
+      const readiness = await waitForContextFileReady(fileName, { accepted: true, timeoutMs: provider === 'chatgpt' ? 15000 : 9000 });
+      if (!readiness.ready) {
+        clearNativeContextFile(fileName);
+        transaction.contextFilePending = Boolean(readiness.busy);
+        return { attached: false, ready: false, pending: Boolean(readiness.busy), reason: readiness.reason, fileName };
+      }
       transaction.contextFileName = fileName;
       transaction.contextFileAttached = true;
-      return { attached: true, confirmed: true, reused: true, fileName };
+      transaction.contextFilePending = false;
+      return { attached: true, ready: true, confirmed: readiness.confirmed, reused: true, fileName };
     }
 
     const composer = findInput();
-    if (!composer) return { attached: false, reason: `${provider} input editor not found.`, fileName };
+    if (!composer) {
+      transaction.contextFilePending = false;
+      return { attached: false, ready: false, reason: `${provider} input editor not found.`, fileName };
+    }
     if (typeof File !== 'function' || typeof DataTransfer !== 'function') {
-      return { attached: false, reason: 'Browser file attachment APIs are unavailable.', fileName };
+      transaction.contextFilePending = false;
+      return { attached: false, ready: false, reason: 'Browser file attachment APIs are unavailable.', fileName };
     }
     const file = new File([fileText], fileName, { type: message.mimeType || 'text/plain', lastModified: Date.now() });
     const transfer = new DataTransfer();
@@ -424,53 +572,47 @@
         for (const type of ['dragenter', 'dragover', 'drop']) {
           composer.dispatchEvent(new DragEvent(type, { bubbles: true, cancelable: true, composed: true, dataTransfer: transfer }));
         }
-        for (let i = 0; i < 12; i += 1) {
-          if (contextFileVisible(fileName)) {
-            transaction.contextFileName = fileName;
-            transaction.contextFileAttached = true;
-            return { attached: true, confirmed: true, dropped: true, fileName };
-          }
-          await new Promise((resolve) => setTimeout(resolve, 250));
+        const readiness = await waitForContextFileReady(fileName, { timeoutMs: provider === 'chatgpt' ? 15000 : 9000 });
+        if (readiness.ready) {
+          transaction.contextFileName = fileName;
+          transaction.contextFileAttached = true;
+          transaction.contextFilePending = false;
+          return { attached: true, ready: true, confirmed: readiness.confirmed, dropped: true, fileName };
         }
+        transaction.contextFilePending = Boolean(readiness.busy);
+        return { attached: false, ready: false, pending: Boolean(readiness.busy), reason: readiness.reason, fileName };
       }
-      return { attached: false, reason: `${provider} file upload control was not found.`, fileName };
+      transaction.contextFilePending = false;
+      return { attached: false, ready: false, reason: `${provider} file upload control was not found.`, fileName };
     }
     try {
       input.files = transfer.files;
     } catch (error) {
-      return { attached: false, reason: `Could not set the provider file input: ${error.message || String(error)}`, fileName };
+      transaction.contextFilePending = false;
+      return { attached: false, ready: false, reason: `Could not set the provider file input: ${error.message || String(error)}`, fileName };
     }
     input.dispatchEvent(new Event('input', { bubbles: true, composed: true }));
     input.dispatchEvent(new Event('change', { bubbles: true, composed: true }));
 
     let assigned = false;
     try { assigned = [...(input.files || [])].some((item) => item.name === fileName); } catch { assigned = false; }
-    let consumedByProvider = false;
-    for (let i = 0; i < 32; i += 1) {
-      if (contextFileVisible(fileName)) {
-        transaction.contextFileName = fileName;
-        transaction.contextFileAttached = true;
-        return { attached: true, confirmed: true, fileName };
-      }
-      if (assigned && !nativeFileInputHas(fileName)) consumedByProvider = true;
-      if (consumedByProvider && i >= 4) {
-        transaction.contextFileName = fileName;
-        transaction.contextFileAttached = true;
-        return { attached: true, confirmed: false, consumed: true, fileName };
-      }
-      await new Promise((resolve) => setTimeout(resolve, 250));
-    }
-
-    // Some provider uploaders keep the native file input populated while upload
-    // processing continues. The assignment + change event is a safe last signal;
-    // background still sends only the short prompt, so provider composer limits
-    // cannot be exceeded even if the attachment UI is slow.
-    if (assigned) {
+    const readiness = await waitForContextFileReady(fileName, { accepted: assigned, timeoutMs: provider === 'chatgpt' ? 15000 : 9000 });
+    if (readiness.ready) {
       transaction.contextFileName = fileName;
       transaction.contextFileAttached = true;
-      return { attached: true, confirmed: false, dispatched: true, fileName };
+      transaction.contextFilePending = false;
+      return { attached: true, ready: true, confirmed: readiness.confirmed, consumed: assigned && !readiness.confirmed, fileName };
     }
-    return { attached: false, reason: `${provider} did not accept the context attachment.`, fileName };
+    clearNativeContextFile(fileName);
+    transaction.contextFilePending = Boolean(readiness.busy);
+    return {
+      attached: false,
+      ready: false,
+      pending: Boolean(readiness.busy),
+      accepted: Boolean(readiness.accepted),
+      reason: readiness.reason || `${provider} did not accept the context attachment.`,
+      fileName,
+    };
   }
 
   async function snapshot() {
@@ -509,6 +651,11 @@
       // erase evidence that the first send already created a new turn.
       transaction.promptText = cleanText(message.text || transaction.promptText);
       transaction.promptSignature = message.promptSignature || transaction.promptSignature || await signatureText(transaction.promptText);
+      if (message.contextMode === 'fallback-inline') {
+        transaction.contextFileName = '';
+        transaction.contextFileAttached = false;
+        transaction.contextFilePending = false;
+      }
       return { ...base, reusedTransaction: true };
     }
     const useRestoredBaseline = Boolean(message.baselineCaptured);
@@ -535,6 +682,7 @@
       deliveryConfirmed: false,
       contextFileName: '',
       contextFileAttached: false,
+      contextFilePending: false,
     };
     return base;
   }
@@ -560,7 +708,22 @@
     }
     transaction.inputPrimed = true;
 
-    const button = findSendButton(input);
+    let button = findSendButton(input);
+    if (provider === 'chatgpt') {
+      // ChatGPT can expose a composer before its context-file card is ready.
+      // Never fall back to form submission or Enter in that state: either wait
+      // for the real Send button or fail without risking a partial/duplicate turn.
+      const sendReady = await waitForChatgptSendReady(input);
+      if (!sendReady.ok) throw new Error(sendReady.reason || 'ChatGPT Send is not available yet; Send was not attempted.');
+      button = sendReady.button;
+      const sendInput = sendReady.input || input;
+      const sendText = inputText(sendInput);
+      const sendSignature = await signatureText(sendText);
+      const sendExpected = transaction.promptSignature || await signatureText(text);
+      if (!sendSignature || !sendExpected || sendSignature !== sendExpected) {
+        throw new Error('ChatGPT composer changed before Send; Send was not attempted to prevent a partial or duplicate message.');
+      }
+    }
     if (button) {
       button.click();
     } else {

@@ -459,6 +459,7 @@ async function ensurePreparedOnPage(meeting, participant, tx, { captureBaseline 
     participantId: participant.id,
     text: tx.promptText,
     promptSignature: tx.promptSignature,
+    contextMode: tx.contextMode || '',
     baselineCaptured: Boolean(restore),
     ...(restore ? {
       baselineAssistantSignature: tx.preAssistantSignature ?? null,
@@ -586,7 +587,7 @@ async function executeTurn(participantId) {
         mimeType: contextPlan.contextFile.mimeType,
       }).catch((error) => ({ ok: false, attached: false, error: error.message || String(error) }));
 
-      if (!attachmentResult?.ok || !attachmentResult.attached) {
+      if (!attachmentResult?.ok || !attachmentResult?.ready) {
         promptText = buildFallbackPrompt(meeting, participant, contextEntries);
         promptSignature = await signatureFor(promptText);
         contextPlan = { ...contextPlan, mode: 'fallback-inline', promptText, contextFile: null };
