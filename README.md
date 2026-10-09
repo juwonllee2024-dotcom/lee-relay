@@ -1,3 +1,33 @@
+<!-- JUWON-PORTFOLIO-INTRO:START -->
+# LEE RELAY
+
+![LEE RELAY — portfolio visual](docs/portfolio-preview.jpg)
+
+*Recorded standalone extension-panel preview; AI-tab connections and meetings not exercised.*
+
+*기존 확장 패널 단독 미리보기 · AI 탭 연결·회의 미실행*
+
+## English
+
+A browser-native Chrome extension for coordinating real AI-provider tabs, shared meeting state, role handoffs, and reviewable reports.
+
+[View JUWON's portfolio](https://jupt.pages.dev/) · [Browse the project collection](https://jupt.pages.dev/projects)
+
+**Scope:** This README presents the repository's documented intent and recorded visual evidence. It does not certify that every feature is complete, deployed, or currently working. Follow the original setup, safety, and license documentation below.
+
+## 한국어
+
+여러 AI 채팅의 메시지·역할·작업 결과를 이어주는 Chrome 확장.
+
+[JUWON 포트폴리오 보기](https://jupt.pages.dev/) · [전체 프로젝트 보기](https://jupt.pages.dev/projects)
+
+**확인 범위:** 저장소의 문서상 목적과 기록된 화면 근거를 소개합니다. 모든 기능의 완성·배포·현재 정상 작동을 보증하지 않습니다. 설치법·안전 주의사항·라이선스는 아래 기존 문서를 확인하세요.
+<!-- JUWON-PORTFOLIO-INTRO:END -->
+
+---
+
+## Original documentation / 기존 문서
+
 # Lee Relay Bot v4.3.1
 
 ![Lee Relay logo](assets/lee-relay-logo.png)
